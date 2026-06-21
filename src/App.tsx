@@ -11,152 +11,21 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
+
 import { auth, db } from "./lib/firebase";
+import type {
+  ConfirmModalState,
+  CustomCategory,
+  Task,
+  TaskType,
+  View,
+} from "./types";
+
+import { defaultCategories } from "./constants/categories";
+import { getCalendarDays, getMonthFromDate, getToday, weekDays } from "./utils/date";
+import { formatMinutes, getDurationMinutes } from "./utils/time";
+import { buildStats } from "./utils/stats";
 import "./App.css";
-
-type TaskStatus = "pending" | "done";
-type TaskType = "task" | "routine" | "backlog";
-type View = "today" | "month" | "stats" | "backlog";
-
-type Task = {
-  id: string;
-  title: string;
-  type: TaskType;
-  category: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: TaskStatus;
-  notes: string;
-};
-
-type CustomCategory = {
-  id: string;
-  name: string;
-};
-
-type ConfirmModalState = {
-  title: string;
-  message: string;
-  confirmText: string;
-  cancelText?: string;
-  danger?: boolean;
-  onConfirm: () => Promise<void> | void;
-};
-
-type CalendarDay = {
-  date: string;
-  dayNumber: number;
-  isCurrentMonth: boolean;
-};
-
-const defaultCategories = [
-  "Δουλειά",
-  "Προπόνηση",
-  "Διάβασμα",
-  "Ταινίες",
-  "Coding",
-  "Προσωπικά",
-];
-
-const getToday = () => {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-};
-
-const getMonthFromDate = (date: string) => date.slice(0, 7);
-
-const weekDays = ["Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ", "Κυρ"];
-
-function formatDateForInput(date: Date) {
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
-
-function getCalendarDays(month: string): CalendarDay[] {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const monthIndex = monthNumber - 1;
-
-  const firstDayOfMonth = new Date(year, monthIndex, 1);
-
-  const mondayBasedStartOffset = (firstDayOfMonth.getDay() + 6) % 7;
-
-  const calendarStartDate = new Date(
-    year,
-    monthIndex,
-    1 - mondayBasedStartOffset
-  );
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const currentDate = new Date(calendarStartDate);
-    currentDate.setDate(calendarStartDate.getDate() + index);
-
-    return {
-      date: formatDateForInput(currentDate),
-      dayNumber: currentDate.getDate(),
-      isCurrentMonth: currentDate.getMonth() === monthIndex,
-    };
-  });
-}
-
-
-function getDurationMinutes(startTime: string, endTime: string) {
-  if (!startTime || !endTime) return 0;
-
-  const [startHour, startMinute] = startTime.split(":").map(Number);
-  const [endHour, endMinute] = endTime.split(":").map(Number);
-
-  const startTotal = startHour * 60 + startMinute;
-  const endTotal = endHour * 60 + endMinute;
-
-  if (endTotal <= startTotal) return 0;
-
-  return endTotal - startTotal;
-}
-
-function formatMinutes(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  if (minutes === 0) return "0m";
-  if (hours === 0) return `${mins}m`;
-  if (mins === 0) return `${hours}h`;
-
-  return `${hours}h ${mins}m`;
-}
-
-function buildStats(taskList: Task[], categories: string[]) {
-  const normalTasks = taskList.filter((task) => task.type !== "backlog");
-  const doneTasks = normalTasks.filter((task) => task.status === "done");
-
-  const totalMinutes = doneTasks.reduce((sum, task) => {
-    return sum + getDurationMinutes(task.startTime, task.endTime);
-  }, 0);
-
-  const completionRate =
-    normalTasks.length === 0
-      ? 0
-      : Math.round((doneTasks.length / normalTasks.length) * 100);
-
-  const minutesByCategory = categories.map((category) => {
-    const total = doneTasks
-      .filter((task) => task.category === category)
-      .reduce((sum, task) => {
-        return sum + getDurationMinutes(task.startTime, task.endTime);
-      }, 0);
-
-    return { category, total };
-  });
-
-  return {
-    totalTasks: normalTasks.length,
-    doneTasks: doneTasks.length,
-    totalMinutes,
-    completionRate,
-    minutesByCategory,
-  };
-}
 
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
