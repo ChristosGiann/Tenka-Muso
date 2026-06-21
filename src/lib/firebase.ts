@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDfDGbEt_MCwGDLkWHsF4sFQmkJigu2AxQ",
-  authDomain: "life-journal-33e14.firebaseapp.com",
-  projectId: "life-journal-33e14",
-  storageBucket: "life-journal-33e14.firebasestorage.app",
-  messagingSenderId: "311523382666",
-  appId: "1:311523382666:web:27fa6318fa7274e8472473"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 export const app = initializeApp(firebaseConfig);
