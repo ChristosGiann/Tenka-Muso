@@ -641,23 +641,37 @@ function App() {
             className="rounded-xl border border-slate-200 px-4 py-3"
           />
 
-          <input
-            type="time"
-            value={form.startTime}
-            onChange={(event) =>
-              setForm({ ...form, startTime: event.target.value })
-            }
-            className="rounded-xl border border-slate-200 px-4 py-3"
-          />
+          <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="block text-sm font-bold text-slate-600">
+                Ώρα έναρξης
+              </span>
 
-          <input
-            type="time"
-            value={form.endTime}
-            onChange={(event) =>
-              setForm({ ...form, endTime: event.target.value })
-            }
-            className="rounded-xl border border-slate-200 px-4 py-3"
-          />
+              <input
+                type="time"
+                value={form.startTime}
+                onChange={(event) =>
+                  setForm({ ...form, startTime: event.target.value })
+                }
+                className="w-full rounded-xl border border-slate-200 px-4 py-3"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="block text-sm font-bold text-slate-600">
+                Ώρα λήξης
+              </span>
+
+              <input
+                type="time"
+                value={form.endTime}
+                onChange={(event) =>
+                  setForm({ ...form, endTime: event.target.value })
+                }
+                className="w-full rounded-xl border border-slate-200 px-4 py-3"
+              />
+            </label>
+          </div>
 
           <textarea
             placeholder="Σημειώσεις"
