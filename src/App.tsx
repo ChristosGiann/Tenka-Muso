@@ -248,6 +248,19 @@ function App() {
     await deleteDoc(taskRef);
   }
 
+  function requestDeleteTask(task: Task) {
+    setConfirmModal({
+      title: "Διαγραφή task",
+      message: `Θέλεις σίγουρα να διαγράψεις το "${task.title}"; Αυτή η ενέργεια δεν αναιρείται.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      danger: true,
+      onConfirm: async () => {
+        await deleteTask(task.id);
+      },
+    });
+  }
+
   async function addCategory() {
     if (!firebaseUser) return;
 
@@ -472,8 +485,8 @@ function App() {
                 </button>
 
                 <button
-                  onClick={() => deleteTask(task.id)}
-                  className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-700"
+                  onClick={() => requestDeleteTask(task)}
+                  className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-200"
                 >
                   Delete
                 </button>
@@ -1040,8 +1053,8 @@ function App() {
                   </div>
 
                   <button
-                    onClick={() => deleteTask(item.id)}
-                    className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-700"
+                    onClick={() => requestDeleteTask(item)}
+                    className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-200"
                   >
                     Delete
                   </button>
