@@ -30,7 +30,21 @@ type Task = {
   notes: string;
 };
 
-const categories = [
+type CustomCategory = {
+  id: string;
+  name: string;
+};
+
+type ConfirmModalState = {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText?: string;
+  danger?: boolean;
+  onConfirm: () => Promise<void> | void;
+};
+
+const defaultCategories = [
   "Δουλειά",
   "Προπόνηση",
   "Διάβασμα",
@@ -73,7 +87,7 @@ function formatMinutes(minutes: number) {
   return `${hours}h ${mins}m`;
 }
 
-function buildStats(taskList: Task[]) {
+function buildStats(taskList: Task[], categories: string[]) {
   const normalTasks = taskList.filter((task) => task.type !== "backlog");
   const doneTasks = normalTasks.filter((task) => task.status === "done");
 
@@ -123,6 +137,20 @@ function App() {
     notes: "",
   });
 
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
+  const [showCategories, setShowCategories] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+
+  const customCategoryNames = customCategories.map((category) => category.name);
+
+  const categories = Array.from(
+    new Set([...defaultCategories, ...customCategoryNames])
+  );
+
   const dayTasks = useMemo(() => {
     return tasks.filter(
       (task) => task.date === selectedDate && task.type !== "backlog"
@@ -139,9 +167,9 @@ function App() {
     return tasks.filter((task) => task.type === "backlog");
   }, [tasks]);
 
-  const todayStats = buildStats(dayTasks);
-  const monthStats = buildStats(monthTasks);
-  const allTimeStats = buildStats(tasks);
+  const todayStats = buildStats(dayTasks, categories);
+  const monthStats = buildStats(monthTasks, categories);
+  const allTimeStats = buildStats(tasks, categories);
 
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -201,24 +229,71 @@ function App() {
     return () => unsubscribe();
   }, [firebaseUser]);
 
-  async function addTask() {
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    const categoriesRef = collection(db, "users", firebaseUser.uid, "categories");
+    const categoriesQuery = query(categoriesRef, orderBy("createdAt", "asc"));
+
+    const unsubscribe = onSnapshot(
+      categoriesQuery,
+      (snapshot) => {
+        const firestoreCategories: CustomCategory[] = snapshot.docs
+          .map((docSnapshot) => {
+            const data = docSnapshot.data();
+
+            return {
+              id: docSnapshot.id,
+              name: data.name as string,
+            };
+          })
+          .filter((category) => Boolean(category.name));
+
+        setCustomCategories(firestoreCategories);
+      },
+      (error) => {
+        console.error("Firestore categories listener failed:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [firebaseUser]);
+
+  async function saveTask() {
     if (!firebaseUser) return;
     if (!form.title.trim()) return;
 
-    const tasksRef = collection(db, "users", firebaseUser.uid, "tasks");
+    if (editingTaskId) {
+      const taskRef = doc(db, "users", firebaseUser.uid, "tasks", editingTaskId);
 
-    await addDoc(tasksRef, {
-      title: form.title.trim(),
-      type: form.type,
-      category: form.category,
-      date: form.date,
-      startTime: form.startTime,
-      endTime: form.endTime,
-      status: "pending",
-      notes: form.notes.trim(),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+      await updateDoc(taskRef, {
+        title: form.title.trim(),
+        type: form.type,
+        category: form.category,
+        date: form.date,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        notes: form.notes.trim(),
+        updatedAt: serverTimestamp(),
+      });
+
+      setEditingTaskId(null);
+    } else {
+      const tasksRef = collection(db, "users", firebaseUser.uid, "tasks");
+
+      await addDoc(tasksRef, {
+        title: form.title.trim(),
+        type: form.type,
+        category: form.category,
+        date: form.date,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        status: "pending",
+        notes: form.notes.trim(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
 
     setForm({
       title: "",
@@ -250,6 +325,108 @@ function App() {
 
     const taskRef = doc(db, "users", firebaseUser.uid, "tasks", taskId);
     await deleteDoc(taskRef);
+  }
+
+  async function addCategory() {
+    if (!firebaseUser) return;
+
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) return;
+
+    const categoryAlreadyExists = categories.some(
+      (category) => category.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (categoryAlreadyExists) {
+      setNewCategoryName("");
+      return;
+    }
+
+    const categoriesRef = collection(db, "users", firebaseUser.uid, "categories");
+
+    await addDoc(categoriesRef, {
+      name: trimmedName,
+      createdAt: serverTimestamp(),
+    });
+    
+    setNewCategoryName("");
+    setForm((currentForm) => ({
+      ...currentForm,
+      category: trimmedName,
+    }));
+  }
+
+  function requestDeleteCategory(category: CustomCategory) {
+    const categoryIsUsed = tasks.some((task) => task.category === category.name);
+
+    if (categoryIsUsed) {
+      setConfirmModal({
+        title: "Δεν μπορεί να διαγραφεί",
+        message: `Η κατηγορία "${category.name}" χρησιμοποιείται ήδη σε task. Άλλαξε πρώτα ή διέγραψε τα tasks που τη χρησιμοποιούν.`,
+        confirmText: "ΟΚ",
+        onConfirm: () => { },
+      });
+
+      return;
+    }
+
+    setConfirmModal({
+      title: "Διαγραφή κατηγορίας",
+      message: `Θέλεις σίγουρα να διαγράψεις την κατηγορία "${category.name}";`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      danger: true,
+      onConfirm: () => deleteCategory(category),
+    });
+  }
+
+  async function deleteCategory(category: CustomCategory) {
+    if (!firebaseUser) return;
+
+    const categoryRef = doc(
+      db,
+      "users",
+      firebaseUser.uid,
+      "categories",
+      category.id
+    );
+
+    await deleteDoc(categoryRef);
+
+    if (form.category === category.name) {
+      setForm((currentForm) => ({
+        ...currentForm,
+        category: "Δουλειά",
+      }));
+    }
+  }
+
+  function startEditTask(task: Task) {
+    setEditingTaskId(task.id);
+
+    setForm({
+      title: task.title,
+      type: task.type,
+      category: task.category,
+      date: task.date,
+      startTime: task.startTime,
+      endTime: task.endTime,
+      notes: task.notes,
+    });
+  }
+
+  function cancelEditTask() {
+    setEditingTaskId(null);
+
+    setForm({
+      title: "",
+      type: "task",
+      category: "Δουλειά",
+      date: selectedDate,
+      startTime: "",
+      endTime: "",
+      notes: "",
+    });
   }
 
   function renderStatsCards(stats: ReturnType<typeof buildStats>) {
@@ -358,7 +535,14 @@ function App() {
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => startEditTask(task)}
+                  className="rounded-xl bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700"
+                >
+                  Edit
+                </button>
+
                 <button
                   onClick={() => toggleDone(task.id)}
                   className="rounded-xl bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700"
@@ -380,11 +564,55 @@ function App() {
     );
   }
 
+  function renderConfirmModal() {
+    if (!confirmModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <h3 className="text-xl font-bold text-slate-950">
+            {confirmModal.title}
+          </h3>
+
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {confirmModal.message}
+          </p>
+
+          <div className="mt-6 flex justify-end gap-3">
+            {confirmModal.cancelText && (
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200"
+              >
+                {confirmModal.cancelText}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={async () => {
+                await confirmModal.onConfirm();
+                setConfirmModal(null);
+              }}
+              className={`rounded-xl px-5 py-3 text-sm font-bold text-white ${confirmModal.danger
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-slate-950 hover:bg-slate-800"
+                }`}
+            >
+              {confirmModal.confirmText}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function renderForm() {
     return (
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h3 className="mb-4 text-xl font-bold">
-          Νέο task / routine / backlog item
+          {editingTaskId ? "Επεξεργασία task" : "Νέο task / routine / backlog item"}
         </h3>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -426,6 +654,63 @@ function App() {
             ))}
           </select>
 
+          <div className="flex gap-2">
+            <input
+              value={newCategoryName}
+              onChange={(event) => setNewCategoryName(event.target.value)}
+              placeholder="Νέα κατηγορία π.χ. Gaming"
+              className="min-w-0 flex-1 rounded-xl border border-slate-200 p-3"
+            />
+
+            <button
+              type="button"
+              onClick={addCategory}
+              className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200"
+            >
+              Add
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCategories((currentValue) => !currentValue)}
+              className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200"
+            >
+              {showCategories ? "Hide" : "Show"}
+            </button>
+          </div>
+          {showCategories && (
+            <div className="md:col-span-2">
+              <p className="mb-2 text-sm font-semibold text-slate-500">
+                Custom categories
+              </p>
+
+              {customCategories.length === 0 ? (
+                <p className="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                  Δεν έχεις custom categories ακόμα.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {customCategories.map((category) => (
+                    <span
+                      key={category.id}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700"
+                    >
+                      {category.name}
+
+                      <button
+                        type="button"
+                        onClick={() => requestDeleteCategory(category)}
+                        className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 hover:bg-red-200"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <input
             type="date"
             value={form.date}
@@ -463,12 +748,23 @@ function App() {
           />
         </div>
 
-        <button
-          onClick={addTask}
-          className="mt-4 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white hover:bg-slate-800"
-        >
-          + Add
-        </button>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={saveTask}
+            className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white hover:bg-slate-800"
+          >
+            {editingTaskId ? "Update task" : "+ Add"}
+          </button>
+
+          {editingTaskId && (
+            <button
+              onClick={cancelEditTask}
+              className="rounded-xl bg-slate-100 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-200"
+            >
+              Cancel edit
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -753,6 +1049,7 @@ function App() {
           {activeView === "backlog" && renderBacklogView()}
         </main>
       </div>
+      {renderConfirmModal()}
     </div>
   );
 }
