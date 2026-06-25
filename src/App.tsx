@@ -27,6 +27,10 @@ import { formatMinutes, getDurationMinutes } from "./utils/time";
 import { buildStats } from "./utils/stats";
 import "./App.css";
 
+import { ConfirmModal } from "./components/ConfirmModal";
+import { StatCards } from "./components/StatCards";
+import { CategoryStats } from "./components/CategoryStats";
+
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
   const [selectedDate, setSelectedDate] = useState(getToday());
@@ -363,62 +367,6 @@ function App() {
     });
   }
 
-  function renderStatsCards(stats: ReturnType<typeof buildStats>) {
-    return (
-      <section className="mb-8 grid gap-4 md:grid-cols-4">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Tasks</p>
-          <p className="mt-2 text-3xl font-bold">{stats.totalTasks}</p>
-        </div>
-
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Done</p>
-          <p className="mt-2 text-3xl font-bold">{stats.doneTasks}</p>
-        </div>
-
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Logged Time</p>
-          <p className="mt-2 text-3xl font-bold">
-            {formatMinutes(stats.totalMinutes)}
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Completion</p>
-          <p className="mt-2 text-3xl font-bold">{stats.completionRate}%</p>
-        </div>
-      </section>
-    );
-  }
-
-  function renderCategoryStats(stats: ReturnType<typeof buildStats>) {
-    return (
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
-        <h3 className="mb-4 text-xl font-bold">Ώρες ανά κατηγορία</h3>
-
-        <div className="space-y-3">
-          {stats.minutesByCategory.map((item) => (
-            <div key={item.category}>
-              <div className="mb-1 flex justify-between text-sm font-semibold">
-                <span>{item.category}</span>
-                <span>{formatMinutes(item.total)}</span>
-              </div>
-
-              <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-slate-950"
-                  style={{
-                    width: `${Math.min((item.total / 480) * 100, 100)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   function renderTaskList(taskList: Task[], emptyMessage: string) {
     return (
       <div className="space-y-3">
@@ -494,50 +442,6 @@ function App() {
             </div>
           );
         })}
-      </div>
-    );
-  }
-
-  function renderConfirmModal() {
-    if (!confirmModal) return null;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-          <h3 className="text-xl font-bold text-slate-950">
-            {confirmModal.title}
-          </h3>
-
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            {confirmModal.message}
-          </p>
-
-          <div className="mt-6 flex justify-end gap-3">
-            {confirmModal.cancelText && (
-              <button
-                type="button"
-                onClick={() => setConfirmModal(null)}
-                className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200"
-              >
-                {confirmModal.cancelText}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={async () => {
-                await confirmModal.onConfirm();
-                setConfirmModal(null);
-              }}
-              className={`rounded-xl px-5 py-3 text-sm font-bold text-white ${confirmModal.danger
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-slate-950 hover:bg-slate-800"
-                }`}
-            >
-              {confirmModal.confirmText}
-            </button>
-          </div>
-        </div>
       </div>
     );
   }
@@ -743,7 +647,7 @@ function App() {
           />
         </header>
 
-        {renderStatsCards(todayStats)}
+        <StatCards stats={todayStats} />
 
         <div className="grid gap-8 xl:grid-cols-[1.5fr_1fr]">
           <section className="space-y-6">
@@ -762,7 +666,7 @@ function App() {
           </section>
 
           <aside className="space-y-6">
-            {renderCategoryStats(todayStats)}
+            <CategoryStats stats={todayStats} />
 
             <div className="rounded-2xl bg-white p-5 shadow-sm">
               <h3 className="mb-4 text-xl font-bold">Backlog</h3>
@@ -919,7 +823,7 @@ function App() {
           />
         </header>
 
-        {renderStatsCards(monthStats)}
+        <StatCards stats={monthStats} />
 
         <div className="grid gap-8 xl:grid-cols-[1.4fr_0.8fr]">
           <section className="space-y-8">
@@ -946,7 +850,7 @@ function App() {
   function renderSelectedCalendarDayPanel() {
     return (
       <div className="space-y-6">
-        {renderCategoryStats(selectedCalendarStats)}
+        <CategoryStats stats={selectedCalendarStats} />
 
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-slate-500">
@@ -994,10 +898,10 @@ function App() {
           <h2 className="text-3xl font-bold">Συνολικά στατιστικά</h2>
         </header>
 
-        {renderStatsCards(allTimeStats)}
+        <StatCards stats={allTimeStats} />
 
         <div className="grid gap-8 xl:grid-cols-[1fr_1fr]">
-          {renderCategoryStats(allTimeStats)}
+          <CategoryStats stats={allTimeStats} />
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-xl font-bold">Σύνοψη</h3>
@@ -1140,7 +1044,11 @@ function App() {
           {activeView === "backlog" && renderBacklogView()}
         </main>
       </div>
-      {renderConfirmModal()}
+
+      <ConfirmModal
+        confirmModal={confirmModal}
+        onClose={() => setConfirmModal(null)}
+      />
     </div>
   );
 }
