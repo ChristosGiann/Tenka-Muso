@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged, signInAnonymously, type User } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInAnonymously,
+  signInWithPopup,
+  signOut,
+  type User,
+} from "firebase/auth";
 import {
   addDoc,
   collection,
@@ -98,17 +105,28 @@ function App() {
 
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authActionLoading, setAuthActionLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setAuthError(null);
+
       if (user) {
         setFirebaseUser(user);
         setAuthLoading(false);
+        setTasksLoading(true);
         return;
       }
 
+      setFirebaseUser(null);
+      setTasks([]);
+      setCustomCategories([]);
+      setTasksLoading(true);
+
       signInAnonymously(auth).catch((error) => {
         console.error("Anonymous sign-in failed:", error);
+        setAuthError("Δεν μπόρεσε να γίνει anonymous σύνδεση.");
         setAuthLoading(false);
         setTasksLoading(false);
       });
@@ -116,6 +134,76 @@ function App() {
 
     return () => unsubscribe();
   }, []);
+
+  function getAuthErrorMessage(error: unknown) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return "Κάτι πήγε λάθος με τη σύνδεση.";
+  }
+
+  async function signInWithGoogle() {
+    if (authActionLoading) return;
+
+    setAuthActionLoading(true);
+    setAuthError(null);
+
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: "select_account",
+    });
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+
+      console.log("Google sign-in user:", {
+        uid: result.user.uid,
+        email: result.user.email,
+        isAnonymous: result.user.isAnonymous,
+      });
+    } catch (error) {
+      console.error("Google sign-in failed:", error);
+
+      const errorCode = getAuthErrorCode(error);
+
+      if (errorCode === "auth/popup-blocked") {
+        setAuthError(
+          "Ο browser μπλόκαρε το Google popup. Πάτα allow popups για αυτό το site και δοκίμασε ξανά."
+        );
+      } else if (errorCode === "auth/popup-closed-by-user") {
+        setAuthError("Το Google popup έκλεισε πριν ολοκληρωθεί η σύνδεση.");
+      } else if (errorCode === "auth/cancelled-popup-request") {
+        setAuthError("Άνοιξε δεύτερο login popup. Πάτα το κουμπί μία φορά και περίμενε.");
+      } else {
+        setAuthError(getAuthErrorMessage(error));
+      }
+    } finally {
+      setAuthActionLoading(false);
+    }
+  }
+
+  function getAuthErrorCode(error: unknown) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      typeof (error as { code?: unknown }).code === "string"
+    ) {
+      return (error as { code: string }).code;
+    }
+
+    return null;
+  }
+
+  async function handleSignOut() {
+    setAuthError(null);
+    setTasks([]);
+    setCustomCategories([]);
+    setTasksLoading(true);
+
+    await signOut(auth);
+  }
 
   useEffect(() => {
     if (!firebaseUser) return;
@@ -621,6 +709,72 @@ function App() {
     );
   }
 
+  function renderAuthPanel() {
+    const isAnonymousUser = firebaseUser?.isAnonymous ?? false;
+    const userLabel = firebaseUser
+      ? firebaseUser.displayName || firebaseUser.email || `Anonymous ${firebaseUser.uid.slice(0, 8)}...`
+      : "Δεν υπάρχει Firebase user.";
+
+    return (
+      <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-500">Account</p>
+
+            <p className="mt-1 font-bold text-slate-800">
+              {authLoading
+                ? "Σύνδεση με Firebase..."
+                : isAnonymousUser
+                  ? "Anonymous mode"
+                  : userLabel}
+            </p>
+
+            {!authLoading && firebaseUser?.email && (
+              <p className="text-sm font-semibold text-slate-500">
+                {firebaseUser.email}
+              </p>
+            )}
+
+            {!authLoading && isAnonymousUser && (
+              <p className="text-sm font-semibold text-slate-500">
+                Τα δεδομένα είναι προσωρινά συνδεδεμένα με αυτό το browser/device.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {!authLoading && firebaseUser && isAnonymousUser && (
+              <button
+                type="button"
+                onClick={signInWithGoogle}
+                disabled={authActionLoading}
+                className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {authActionLoading ? "Opening Google..." : "Sign in with Google"}
+              </button>
+            )}
+
+            {!authLoading && firebaseUser && !isAnonymousUser && (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200"
+              >
+                Sign out
+              </button>
+            )}
+          </div>
+        </div>
+
+        {authError && (
+          <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">
+            {authError}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   function renderTodayView() {
     return (
       <>
@@ -1108,13 +1262,7 @@ function App() {
         </aside>
 
         <main className="flex-1 p-4 md:p-8">
-          <div className="mb-4 rounded-2xl bg-white p-4 text-sm font-semibold text-slate-600 shadow-sm">
-            {authLoading
-              ? "Σύνδεση με Firebase..."
-              : firebaseUser
-                ? `Firebase anonymous user: ${firebaseUser.uid.slice(0, 8)}...`
-                : "Δεν υπάρχει Firebase user."}
-          </div>
+          {renderAuthPanel()}
           {tasksLoading && (
             <div className="mb-4 rounded-2xl bg-white p-4 text-sm font-semibold text-slate-600 shadow-sm">
               Φόρτωση tasks από Firestore...
