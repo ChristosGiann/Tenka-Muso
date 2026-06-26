@@ -911,7 +911,55 @@ function App() {
               <p>Ολοκληρωμένα tasks: {allTimeStats.doneTasks}</p>
               <p>Συνολικός χρόνος: {formatMinutes(allTimeStats.totalMinutes)}</p>
               <p>Backlog items: {backlogItems.length}</p>
+              <p>
+                Μέσος χρόνος ανά completed task:{" "}
+                {formatMinutes(allTimeStats.averageMinutesPerDoneTask)}
+              </p>
+              <p>
+                Πιο ενεργή κατηγορία:{" "}
+                {allTimeStats.mostActiveCategory
+                  ? `${allTimeStats.mostActiveCategory.category} (${formatMinutes(
+                    allTimeStats.mostActiveCategory.totalMinutes
+                  )})`
+                  : "Δεν υπάρχουν ακόμα ολοκληρωμένα tasks με χρόνο."}
+              </p>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
+          <h3 className="mb-4 text-xl font-bold">Ανάλυση ανά κατηγορία</h3>
+
+          <div className="space-y-3">
+            {allTimeStats.categoryStats.map((categoryStat) => (
+              <div
+                key={categoryStat.category}
+                className="rounded-xl border border-slate-200 p-4"
+              >
+                <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                  <h4 className="font-bold">{categoryStat.category}</h4>
+
+                  <p className="text-sm font-semibold text-slate-500">
+                    {categoryStat.completionRate}% completion
+                  </p>
+                </div>
+
+                <div className="grid gap-3 text-sm font-semibold text-slate-700 md:grid-cols-3">
+                  <p>Tasks: {categoryStat.totalTasks}</p>
+                  <p>Done: {categoryStat.doneTasks}</p>
+                  <p>Χρόνος: {formatMinutes(categoryStat.totalMinutes)}</p>
+                </div>
+
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-slate-950"
+                    style={{
+                      width: `${categoryStat.completionRate}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </>
