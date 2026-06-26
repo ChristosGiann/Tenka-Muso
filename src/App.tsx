@@ -932,7 +932,13 @@ function App() {
           {renderForm()}
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <h3 className="mb-4 text-xl font-bold">Όλα τα backlog items</h3>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold">Όλα τα backlog items</h3>
+
+              <p className="text-sm font-semibold text-slate-500">
+                {backlogItems.length} items
+              </p>
+            </div>
 
             <div className="space-y-3">
               {backlogItems.length === 0 && (
@@ -956,12 +962,21 @@ function App() {
                     )}
                   </div>
 
-                  <button
-                    onClick={() => requestDeleteTask(item)}
-                    className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-200"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => startEditTask(item)}
+                      className="rounded-xl bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700 hover:bg-blue-200"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      onClick={() => requestDeleteTask(item)}
+                      className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-200"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
