@@ -1081,9 +1081,9 @@ function App() {
         <aside className="hidden w-64 border-r border-slate-200 bg-white p-6 lg:block">
           <div className="mb-10">
             <p className="text-sm font-semibold text-slate-400">
-              Personal System
+              Personal Path
             </p>
-            <h1 className="text-2xl font-bold">Life Journal</h1>
+            <h1 className="text-2xl font-bold">Tenka Musō</h1>
           </div>
 
           <nav className="space-y-2">
