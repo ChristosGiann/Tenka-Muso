@@ -1,6 +1,9 @@
 export type TaskStatus = "pending" | "done";
 export type TaskType = "task" | "routine" | "backlog";
-export type View = "today" | "month" | "stats" | "backlog";
+export type View = "today" | "week" | "month" | "stats" | "backlog";
+export type BacklogPriority = "low" | "medium" | "high";
+export type BacklogStatus = "idea" | "someday" | "planned";
+
 
 export type Task = {
   id: string;
@@ -12,6 +15,8 @@ export type Task = {
   endTime: string;
   status: TaskStatus;
   notes: string;
+  priority?: BacklogPriority;
+  backlogStatus?: BacklogStatus;
 };
 
 export type CustomCategory = {
