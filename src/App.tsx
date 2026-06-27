@@ -21,6 +21,8 @@ import {
 
 import { auth, db } from "./lib/firebase";
 import type {
+  BacklogPriority,
+  BacklogStatus,
   ConfirmModalState,
   CustomCategory,
   Task,
@@ -63,6 +65,8 @@ function App() {
     startTime: "",
     endTime: "",
     notes: "",
+    priority: "medium" as BacklogPriority,
+    backlogStatus: "idea" as BacklogStatus,
   });
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -72,6 +76,20 @@ function App() {
 
   const [showCategories, setShowCategories] = useState(false);
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+
+  const [backlogCategoryFilter, setBacklogCategoryFilter] = useState("all");
+
+  const [backlogPriorityFilter, setBacklogPriorityFilter] = useState<
+    BacklogPriority | "all"
+  >("all");
+
+  const [backlogStatusFilter, setBacklogStatusFilter] = useState<
+    BacklogStatus | "all"
+  >("all");
+
+  const [backlogSort, setBacklogSort] = useState<
+    "newest" | "priority" | "category"
+  >("newest");
 
   const customCategoryNames = customCategories.map((category) => category.name);
 
@@ -127,6 +145,50 @@ function App() {
   const backlogItems = useMemo(() => {
     return tasks.filter((task) => task.type === "backlog");
   }, [tasks]);
+
+  const filteredBacklogItems = useMemo(() => {
+    const priorityWeight: Record<BacklogPriority, number> = {
+      high: 3,
+      medium: 2,
+      low: 1,
+    };
+
+    const filteredItems = backlogItems.filter((item) => {
+      const matchesCategory =
+        backlogCategoryFilter === "all" || item.category === backlogCategoryFilter;
+
+      const matchesPriority =
+        backlogPriorityFilter === "all" ||
+        (item.priority ?? "medium") === backlogPriorityFilter;
+
+      const matchesStatus =
+        backlogStatusFilter === "all" ||
+        (item.backlogStatus ?? "idea") === backlogStatusFilter;
+
+      return matchesCategory && matchesPriority && matchesStatus;
+    });
+
+    return [...filteredItems].sort((firstItem, secondItem) => {
+      if (backlogSort === "priority") {
+        return (
+          priorityWeight[secondItem.priority ?? "medium"] -
+          priorityWeight[firstItem.priority ?? "medium"]
+        );
+      }
+
+      if (backlogSort === "category") {
+        return firstItem.category.localeCompare(secondItem.category);
+      }
+
+      return 0;
+    });
+  }, [
+    backlogItems,
+    backlogCategoryFilter,
+    backlogPriorityFilter,
+    backlogStatusFilter,
+    backlogSort,
+  ]);
 
   const todayStats = buildStats(dayTasks, categories);
   const monthStats = buildStats(monthTasks, categories);
@@ -269,6 +331,8 @@ function App() {
             endTime: data.endTime ?? "",
             status: data.status ?? "pending",
             notes: data.notes ?? "",
+            priority: data.priority ?? "medium",
+            backlogStatus: data.backlogStatus ?? "idea",
           };
         });
 
@@ -329,6 +393,8 @@ function App() {
         startTime: form.startTime,
         endTime: form.endTime,
         notes: form.notes.trim(),
+        priority: form.priority,
+        backlogStatus: form.backlogStatus,
         updatedAt: serverTimestamp(),
       });
 
@@ -345,6 +411,8 @@ function App() {
         endTime: form.endTime,
         status: "pending",
         notes: form.notes.trim(),
+        priority: form.priority,
+        backlogStatus: form.backlogStatus,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -358,6 +426,8 @@ function App() {
       startTime: "",
       endTime: "",
       notes: "",
+      priority: "medium",
+      backlogStatus: "idea",
     });
   }
 
@@ -480,6 +550,8 @@ function App() {
       startTime: task.startTime,
       endTime: task.endTime,
       notes: task.notes,
+      priority: task.priority ?? "medium",
+      backlogStatus: task.backlogStatus ?? "idea",
     });
   }
 
@@ -494,6 +566,8 @@ function App() {
       startTime: "",
       endTime: "",
       notes: "",
+      priority: "medium",
+      backlogStatus: "idea",
     });
   }
 
@@ -687,6 +761,52 @@ function App() {
             }
             className="rounded-xl border border-slate-200 px-4 py-3"
           />
+
+          {form.type === "backlog" && (
+            <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="block text-sm font-bold text-slate-600">
+                  Priority
+                </span>
+
+                <select
+                  value={form.priority}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      priority: event.target.value as BacklogPriority,
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+
+              <label className="space-y-2">
+                <span className="block text-sm font-bold text-slate-600">
+                  Backlog status
+                </span>
+
+                <select
+                  value={form.backlogStatus}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      backlogStatus: event.target.value as BacklogStatus,
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                >
+                  <option value="idea">Idea</option>
+                  <option value="someday">Someday</option>
+                  <option value="planned">Planned</option>
+                </select>
+              </label>
+            </div>
+          )}
 
           <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
             <label className="space-y-2">
@@ -1318,7 +1438,7 @@ function App() {
                 <h3 className="text-xl font-bold">Όλα τα backlog items</h3>
 
                 <p className="text-sm font-semibold text-slate-500">
-                  {backlogItems.length} items · Διάλεξε ημερομηνία για schedule
+                  {filteredBacklogItems.length}/{backlogItems.length} items · Διάλεξε ημερομηνία για schedule
                 </p>
               </div>
 
@@ -1333,14 +1453,67 @@ function App() {
               />
             </div>
 
+            <div className="mb-4 grid gap-3 md:grid-cols-4">
+              <select
+                value={backlogCategoryFilter}
+                onChange={(event) => setBacklogCategoryFilter(event.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold"
+              >
+                <option value="all">All categories</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={backlogPriorityFilter}
+                onChange={(event) =>
+                  setBacklogPriorityFilter(event.target.value as BacklogPriority | "all")
+                }
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold"
+              >
+                <option value="all">All priorities</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+
+              <select
+                value={backlogStatusFilter}
+                onChange={(event) =>
+                  setBacklogStatusFilter(event.target.value as BacklogStatus | "all")
+                }
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold"
+              >
+                <option value="all">All statuses</option>
+                <option value="idea">Idea</option>
+                <option value="someday">Someday</option>
+                <option value="planned">Planned</option>
+              </select>
+
+              <select
+                value={backlogSort}
+                onChange={(event) =>
+                  setBacklogSort(event.target.value as "newest" | "priority" | "category")
+                }
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold"
+              >
+                <option value="newest">Newest first</option>
+                <option value="priority">Priority first</option>
+                <option value="category">Category A-Z</option>
+              </select>
+            </div>
+
             <div className="space-y-3">
-              {backlogItems.length === 0 && (
+              {filteredBacklogItems.length === 0 && (
                 <p className="rounded-xl bg-slate-50 p-4 text-slate-500">
-                  Δεν έχεις backlog items ακόμα.
+                  Δεν υπάρχουν backlog items με αυτά τα φίλτρα.
                 </p>
               )}
 
-              {backlogItems.map((item) => (
+              {filteredBacklogItems.map((item) => (
                 <div
                   key={item.id}
                   className="flex flex-col gap-3 rounded-xl bg-slate-50 p-4 md:flex-row md:items-center md:justify-between"
@@ -1348,6 +1521,17 @@ function App() {
                   <div>
                     <p className="font-bold">{item.title}</p>
                     <p className="text-sm text-slate-500">{item.category}</p>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-700">
+                        Priority: {item.priority ?? "medium"}
+                      </span>
+
+                      <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-700">
+                        Status: {item.backlogStatus ?? "idea"}
+                      </span>
+                    </div>
+
                     {item.notes && (
                       <p className="mt-2 text-sm text-slate-600">
                         {item.notes}
@@ -1395,6 +1579,7 @@ function App() {
       type: "task",
       date: selectedDate,
       status: "pending",
+      backlogStatus: "planned",
       updatedAt: serverTimestamp(),
     });
 
