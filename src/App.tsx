@@ -29,7 +29,14 @@ import type {
 } from "./types";
 
 import { defaultCategories } from "./constants/categories";
-import { getCalendarDays, getMonthFromDate, getToday, weekDays } from "./utils/date";
+import {
+  addDays,
+  getCalendarDays,
+  getMonthFromDate,
+  getToday,
+  getWeekDatesFromDate,
+  weekDays,
+} from "./utils/date";
 import { formatMinutes, getDurationMinutes } from "./utils/time";
 import { buildStats } from "./utils/stats";
 import "./App.css";
@@ -41,6 +48,7 @@ import { CategoryStats } from "./components/CategoryStats";
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
   const [selectedDate, setSelectedDate] = useState(getToday());
+  const [selectedWeekDate, setSelectedWeekDate] = useState(getToday());
   const [selectedMonth, setSelectedMonth] = useState(getMonthFromDate(getToday()));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(getToday());
 
@@ -83,12 +91,46 @@ function App() {
     );
   }, [tasks, selectedMonth]);
 
+  const weekDates = useMemo(() => {
+    return getWeekDatesFromDate(selectedWeekDate);
+  }, [selectedWeekDate]);
+
+  const weekTasks = useMemo(() => {
+    return tasks.filter(
+      (task) => weekDates.includes(task.date) && task.type !== "backlog"
+    );
+  }, [tasks, weekDates]);
+
+  const weekDaySummaries = useMemo(() => {
+    return weekDates.map((date) => {
+      const tasksForDay = tasks.filter(
+        (task) => task.date === date && task.type !== "backlog"
+      );
+
+      const doneTasksForDay = tasksForDay.filter(
+        (task) => task.status === "done"
+      );
+
+      const doneMinutes = doneTasksForDay.reduce((sum, task) => {
+        return sum + getDurationMinutes(task.startTime, task.endTime);
+      }, 0);
+
+      return {
+        date,
+        totalTasks: tasksForDay.length,
+        doneTasks: doneTasksForDay.length,
+        doneMinutes,
+      };
+    });
+  }, [tasks, weekDates]);
+
   const backlogItems = useMemo(() => {
     return tasks.filter((task) => task.type === "backlog");
   }, [tasks]);
 
   const todayStats = buildStats(dayTasks, categories);
   const monthStats = buildStats(monthTasks, categories);
+  const weekStats = buildStats(weekTasks, categories);
   const allTimeStats = buildStats(tasks, categories);
 
   const selectedCalendarTasks = useMemo(() => {
@@ -953,6 +995,143 @@ function App() {
     );
   }
 
+  function renderWeekView() {
+    const weekStart = weekDates[0];
+    const weekEnd = weekDates[6];
+
+    return (
+      <>
+        <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-500">
+              Weekly Overview
+            </p>
+            <h2 className="text-3xl font-bold">Εβδομαδιαία εικόνα</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              {weekStart} έως {weekEnd}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedWeekDate(addDays(weekStart, -7))}
+              className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Προηγούμενη
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedWeekDate(getToday())}
+              className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800"
+            >
+              Τρέχουσα
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedWeekDate(addDays(weekStart, 7))}
+              className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Επόμενη
+            </button>
+
+            <input
+              type="date"
+              value={selectedWeekDate}
+              onChange={(event) => setSelectedWeekDate(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+            />
+          </div>
+        </header>
+
+        <StatCards stats={weekStats} />
+
+        <div className="grid gap-8 xl:grid-cols-[1.4fr_0.8fr]">
+          <section className="space-y-8">
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Ημέρες εβδομάδας</h3>
+                  <p className="text-sm font-semibold text-slate-500">
+                    Πάτα σε μια ημέρα για να ανοίξει στο Today view.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+                {weekDaySummaries.map((daySummary, index) => {
+                  const isToday = daySummary.date === getToday();
+
+                  return (
+                    <button
+                      key={daySummary.date}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDate(daySummary.date);
+                        setSelectedMonth(getMonthFromDate(daySummary.date));
+                        setSelectedCalendarDate(daySummary.date);
+                        setForm((currentForm) => ({
+                          ...currentForm,
+                          date: daySummary.date,
+                        }));
+                        setActiveView("today");
+                      }}
+                      className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${isToday
+                        ? "border-blue-400 bg-blue-50"
+                        : "border-slate-200 bg-white"
+                        }`}
+                    >
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-bold text-slate-500">
+                          {weekDays[index]}
+                        </p>
+
+                        {isToday && (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                            Today
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-sm font-semibold text-slate-500">
+                        {daySummary.date}
+                      </p>
+
+                      <p className="mt-3 text-2xl font-extrabold">
+                        {formatMinutes(daySummary.doneMinutes)}
+                      </p>
+
+                      <p className="mt-2 text-sm font-semibold text-slate-500">
+                        {daySummary.doneTasks}/{daySummary.totalTasks} done
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xl font-bold">Tasks εβδομάδας</h3>
+                <p className="text-sm font-semibold text-slate-500">
+                  {weekStart} - {weekEnd}
+                </p>
+              </div>
+
+              {renderTaskList(weekTasks, "Δεν έχεις tasks για αυτή την εβδομάδα.")}
+            </div>
+          </section>
+
+          <aside>
+            <CategoryStats stats={weekStats} />
+          </aside>
+        </div>
+      </>
+    );
+  }
+
   function renderMonthView() {
     return (
       <>
@@ -1224,6 +1403,7 @@ function App() {
 
   const views: { id: View; label: string }[] = [
     { id: "today", label: "Today" },
+    { id: "week", label: "Week" },
     { id: "month", label: "Month" },
     { id: "stats", label: "Stats" },
     { id: "backlog", label: "Backlog" },
@@ -1284,6 +1464,7 @@ function App() {
           </div>
 
           {activeView === "today" && renderTodayView()}
+          {activeView === "week" && renderWeekView()}
           {activeView === "month" && renderMonthView()}
           {activeView === "stats" && renderStatsView()}
           {activeView === "backlog" && renderBacklogView()}
