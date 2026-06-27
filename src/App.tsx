@@ -1643,9 +1643,29 @@ function App() {
   return (
     <div className={theme.appShell}>
       <div className={`${theme.pageBackdrop} ${theme.paperTexture}`}>
-        <div className="flex min-h-screen">
-          <aside className={theme.sidebar}>
-            <div className="mb-10">
+        <img
+          src="/theme/mountain.png"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 top-6 z-0 hidden w-[680px] opacity-25 mix-blend-multiply lg:block"
+        />
+
+        <img
+          src="/theme/plant-2.png"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-0 right-4 z-0 hidden w-[360px] opacity-20 mix-blend-multiply xl:block"
+        />
+
+        <div className="relative z-10 flex min-h-screen">
+          <aside className={`${theme.sidebar} overflow-hidden`}>
+            <img
+              src="/theme/plant.png"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-6 left-4 z-0 w-40 opacity-25 mix-blend-multiply"
+            />
+            <div className="relative z-10 mb-10">
               <p className="text-xs font-bold tracking-[0.35em] text-neutral-500">
                 天下無双
               </p>
@@ -1659,21 +1679,36 @@ function App() {
               </p>
             </div>
 
-            <nav className="space-y-2">
-              {views.map((view) => (
-                <button
-                  key={view.id}
-                  onClick={() => setActiveView(view.id)}
-                  className={
-                    activeView === view.id ? theme.navItemActive : theme.navItem
-                  }
-                >
-                  {view.label}
-                </button>
-              ))}
+            <nav className="relative z-10 space-y-2">
+              {views.map((view) => {
+                const isActive = activeView === view.id;
+
+                return (
+                  <button
+                    key={view.id}
+                    onClick={() => setActiveView(view.id)}
+                    className={
+                      isActive
+                        ? "relative w-full overflow-visible px-4 py-3 text-left text-sm font-bold text-stone-50"
+                        : theme.navItem
+                    }
+                  >
+                    {isActive && (
+                      <img
+                        src="/theme/brush-1.png"
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-0 top-1/2 h-[42px] w-full -translate-y-1/2 scale-x-110 object-fill opacity-95"
+                      />
+                    )}
+
+                    <span className="relative z-10">{view.label}</span>
+                  </button>
+                );
+              })}
             </nav>
 
-            <div className="mt-10 rounded-2xl border border-neutral-300 bg-neutral-950 p-4 text-stone-50 shadow-[0_10px_25px_rgba(23,23,23,0.18)]">
+            <div className="relative z-10 mt-10 rounded-2xl border border-neutral-300 bg-neutral-950 p-4 text-stone-50 shadow-[0_10px_25px_rgba(23,23,23,0.18)]">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-stone-400">
                 Current view
               </p>
@@ -1690,19 +1725,32 @@ function App() {
                 </div>
               )}
               <div className="mb-4 flex gap-2 overflow-x-auto lg:hidden">
-                {views.map((view) => (
-                  <button
-                    key={view.id}
-                    onClick={() => setActiveView(view.id)}
-                    className={
-                      activeView === view.id
-                        ? "shrink-0 rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50"
-                        : "shrink-0 rounded-xl border border-neutral-300 bg-stone-100 px-4 py-2 text-sm font-bold text-neutral-700"
-                    }
-                  >
-                    {view.label}
-                  </button>
-                ))}
+                {views.map((view) => {
+                  const isActive = activeView === view.id;
+
+                  return (
+                    <button
+                      key={view.id}
+                      onClick={() => setActiveView(view.id)}
+                      className={
+                        isActive
+                          ? "relative shrink-0 overflow-hidden rounded-xl px-4 py-2 text-sm font-bold text-stone-50"
+                          : "shrink-0 rounded-xl border border-neutral-300 bg-stone-100 px-4 py-2 text-sm font-bold text-neutral-700"
+                      }
+                    >
+                      {isActive && (
+                        <img
+                          src="/theme/brush-1.png"
+                          alt=""
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 h-full w-full scale-x-110 object-fill opacity-95"
+                        />
+                      )}
+
+                      <span className="relative z-10">{view.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {activeView === "today" && renderTodayView()}
