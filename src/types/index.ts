@@ -1,6 +1,6 @@
 export type TaskStatus = "pending" | "done";
 export type TaskType = "task" | "routine" | "backlog";
-export type View = "today" | "week" | "month" | "stats" | "backlog";
+export type View = "today" | "week" | "month" | "stats" | "backlog" | "profile";
 export type BacklogPriority = "low" | "medium" | "high";
 export type BacklogStatus = "idea" | "someday" | "planned";
 
