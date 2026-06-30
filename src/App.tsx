@@ -5,6 +5,7 @@ import {
   signInAnonymously,
   signInWithPopup,
   signOut,
+  updateProfile,
   type User,
 } from "firebase/auth";
 import {
@@ -48,6 +49,19 @@ import "./App.css";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { StatCards } from "./components/StatCards";
 import { CategoryStats } from "./components/CategoryStats";
+
+const defaultUserSettings = {
+  defaultCategory: "Δουλειά",
+  defaultView: "today" as View,
+  themePreference: "manga-grayscale",
+};
+
+function isValidView(value: unknown): value is View {
+  return (
+    typeof value === "string" &&
+    ["today", "week", "month", "stats", "backlog", "profile"].includes(value)
+  );
+}
 
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
@@ -221,6 +235,17 @@ function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authActionLoading, setAuthActionLoading] = useState(false);
 
+  const [profileNameDraft, setProfileNameDraft] = useState("");
+  const [profileNameSaving, setProfileNameSaving] = useState(false);
+  const [profileNameSaved, setProfileNameSaved] = useState(false);
+  const [profileNameError, setProfileNameError] = useState<string | null>(null);
+
+  const [userSettings, setUserSettings] = useState(defaultUserSettings);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setAuthError(null);
@@ -237,8 +262,13 @@ function App() {
       setCustomCategories([]);
       setDailyNotes({});
       setDailyNoteDraft("");
+      setUserSettings(defaultUserSettings);
       setTasksLoading(true);
       setDailyNotesLoading(true);
+      setSettingsLoading(true);
+      setProfileNameDraft("");
+      setProfileNameSaved(false);
+      setProfileNameError(null);
 
       signInAnonymously(auth).catch((error) => {
         console.error("Anonymous sign-in failed:", error);
@@ -246,6 +276,7 @@ function App() {
         setAuthLoading(false);
         setTasksLoading(false);
         setDailyNotesLoading(false);
+        setSettingsLoading(false);
       });
     });
 
@@ -321,6 +352,13 @@ function App() {
     setDailyNoteDraft("");
     setTasksLoading(true);
     setDailyNotesLoading(true);
+    setUserSettings(defaultUserSettings);
+    setSettingsLoading(true);
+    setSettingsSaved(false);
+    setSettingsError(null);
+    setProfileNameDraft("");
+    setProfileNameSaved(false);
+    setProfileNameError(null);
 
     await signOut(auth);
   }
@@ -432,10 +470,60 @@ function App() {
   }, [firebaseUser]);
 
   useEffect(() => {
+    if (!firebaseUser) return;
+
+    setSettingsLoading(true);
+
+    const settingsRef = doc(db, "users", firebaseUser.uid, "settings", "app");
+
+    const unsubscribe = onSnapshot(
+      settingsRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setUserSettings(defaultUserSettings);
+          setSettingsLoading(false);
+          return;
+        }
+
+        const data = snapshot.data();
+
+        setUserSettings({
+          defaultCategory:
+            typeof data.defaultCategory === "string"
+              ? data.defaultCategory
+              : defaultUserSettings.defaultCategory,
+          defaultView: isValidView(data.defaultView)
+            ? data.defaultView
+            : defaultUserSettings.defaultView,
+          themePreference:
+            typeof data.themePreference === "string"
+              ? data.themePreference
+              : defaultUserSettings.themePreference,
+        });
+
+        setSettingsLoading(false);
+      },
+      (error) => {
+        console.error("Firestore user settings listener failed:", error);
+        setSettingsError("Δεν μπόρεσαν να φορτωθούν τα settings.");
+        setSettingsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [firebaseUser]);
+
+  useEffect(() => {
     setDailyNoteDraft(dailyNotes[selectedDate] ?? "");
     setDailyNoteSaved(false);
     setDailyNoteError(null);
   }, [dailyNotes, selectedDate]);
+
+  useEffect(() => {
+    setProfileNameDraft(firebaseUser?.displayName ?? "");
+    setProfileNameSaved(false);
+    setProfileNameError(null);
+  }, [firebaseUser?.uid, firebaseUser?.displayName]);
 
   async function saveTask() {
     if (!firebaseUser) return;
@@ -480,7 +568,7 @@ function App() {
     setForm({
       title: "",
       type: "task",
-      category: "Δουλειά",
+      category: userSettings.defaultCategory,
       date: selectedDate,
       startTime: "",
       endTime: "",
@@ -522,6 +610,62 @@ function App() {
       setDailyNoteError("Δεν μπόρεσε να αποθηκευτεί το daily note.");
     } finally {
       setDailyNoteSaving(false);
+    }
+  }
+
+  async function saveUserSettings() {
+    if (!firebaseUser) return;
+
+    setSettingsSaving(true);
+    setSettingsSaved(false);
+    setSettingsError(null);
+
+    try {
+      const settingsRef = doc(db, "users", firebaseUser.uid, "settings", "app");
+
+      await setDoc(
+        settingsRef,
+        {
+          defaultCategory: userSettings.defaultCategory,
+          defaultView: userSettings.defaultView,
+          themePreference: userSettings.themePreference,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setSettingsSaved(true);
+    } catch (error) {
+      console.error("Save user settings failed:", error);
+      setSettingsError("Δεν μπόρεσαν να αποθηκευτούν τα settings.");
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
+  async function saveProfileName() {
+    if (!firebaseUser) return;
+
+    setProfileNameSaving(true);
+    setProfileNameSaved(false);
+    setProfileNameError(null);
+
+    try {
+      const trimmedName = profileNameDraft.trim();
+
+      await updateProfile(firebaseUser, {
+        displayName: trimmedName || null,
+      });
+
+      await firebaseUser.reload();
+
+      setFirebaseUser(auth.currentUser);
+      setProfileNameSaved(true);
+    } catch (error) {
+      console.error("Save profile name failed:", error);
+      setProfileNameError("Δεν μπόρεσε να αποθηκευτεί το όνομα.");
+    } finally {
+      setProfileNameSaving(false);
     }
   }
 
@@ -628,7 +772,7 @@ function App() {
     if (form.category === category.name) {
       setForm((currentForm) => ({
         ...currentForm,
-        category: "Δουλειά",
+        category: userSettings.defaultCategory,
       }));
     }
   }
@@ -655,7 +799,7 @@ function App() {
     setForm({
       title: "",
       type: "task",
-      category: "Δουλειά",
+      category: userSettings.defaultCategory,
       date: selectedDate,
       startTime: "",
       endTime: "",
@@ -1620,6 +1764,260 @@ function App() {
     );
   }
 
+  function renderProfileView() {
+    const isAnonymousUser = firebaseUser?.isAnonymous ?? false;
+
+    const providerLabel = isAnonymousUser
+      ? "Anonymous"
+      : firebaseUser?.providerData?.[0]?.providerId ?? "Google / Firebase";
+
+    const userLabel = firebaseUser
+      ? firebaseUser.displayName ||
+      firebaseUser.email ||
+      `Anonymous ${firebaseUser.uid.slice(0, 8)}...`
+      : "Δεν υπάρχει Firebase user.";
+
+    return (
+      <>
+        <header className="mb-8">
+          <p className={theme.eyebrow}>Account / Settings</p>
+
+          <h2 className={`${theme.title} ${theme.brushUnderline}`}>
+            Profile
+          </h2>
+
+          <p className="mt-3 text-sm font-semibold text-neutral-500">
+            Διαχείριση λογαριασμού και βασικών προτιμήσεων.
+          </p>
+        </header>
+
+        <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
+          <section className="space-y-6">
+            <div className={theme.card}>
+              <p className={theme.eyebrow}>User</p>
+
+              <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mt-2`}>
+                Στοιχεία λογαριασμού
+              </h3>
+
+              <div className="mt-6 space-y-6 text-sm font-semibold text-neutral-700">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
+                    Display name
+                  </p>
+
+                  <div className="mt-4 flex flex-col gap-3 md:flex-row">
+                    <input
+                      value={profileNameDraft}
+                      onChange={(event) => {
+                        setProfileNameDraft(event.target.value);
+                        setProfileNameSaved(false);
+                      }}
+                      placeholder="Π.χ. Christos"
+                      className={`${theme.input} min-w-0 flex-1`}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={saveProfileName}
+                      disabled={profileNameSaving || authLoading || !firebaseUser}
+                      className={theme.primaryButton}
+                    >
+                      {profileNameSaving ? "Saving..." : "Save name"}
+                    </button>
+                  </div>
+
+                  {profileNameSaved && (
+                    <p className="mt-3 text-sm font-semibold text-neutral-700">
+                      Το όνομα αποθηκεύτηκε.
+                    </p>
+                  )}
+
+                  {profileNameError && (
+                    <p className="mt-3 text-sm font-semibold text-neutral-700">
+                      {profileNameError}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
+                    User
+                  </p>
+
+                  <p className="mt-3 text-base font-bold text-neutral-950">
+                    {authLoading ? "Φόρτωση..." : userLabel}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
+                    Email
+                  </p>
+
+                  <p className="mt-3 text-base font-bold text-neutral-950">
+                    {firebaseUser?.email ?? "Δεν υπάρχει email στο anonymous mode."}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
+                    Provider
+                  </p>
+
+                  <p className="mt-3 text-base font-bold text-neutral-950">
+                    {providerLabel}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                {!authLoading && firebaseUser && isAnonymousUser && (
+                  <button
+                    type="button"
+                    onClick={signInWithGoogle}
+                    disabled={authActionLoading}
+                    className={theme.primaryButton}
+                  >
+                    {authActionLoading ? "Opening Google..." : "Sign in with Google"}
+                  </button>
+                )}
+
+                {!authLoading && firebaseUser && !isAnonymousUser && (
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className={theme.secondaryButton}
+                  >
+                    Sign out
+                  </button>
+                )}
+              </div>
+
+              {authError && (
+                <p className="mt-4 rounded-xl border border-neutral-300 bg-stone-100 p-3 text-sm font-semibold text-neutral-800">
+                  {authError}
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="space-y-6">
+            <div className={theme.card}>
+              <p className={theme.eyebrow}>Preferences</p>
+
+              <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mt-2`}>
+                Settings
+              </h3>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="block text-sm font-bold text-neutral-600">
+                    Default category
+                  </span>
+
+                  <select
+                    value={userSettings.defaultCategory}
+                    onChange={(event) => {
+                      setUserSettings((currentSettings) => ({
+                        ...currentSettings,
+                        defaultCategory: event.target.value,
+                      }));
+                      setSettingsSaved(false);
+                    }}
+                    className={theme.inputFull}
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="block text-sm font-bold text-neutral-600">
+                    Default view
+                  </span>
+
+                  <select
+                    value={userSettings.defaultView}
+                    onChange={(event) => {
+                      setUserSettings((currentSettings) => ({
+                        ...currentSettings,
+                        defaultView: event.target.value as View,
+                      }));
+                      setSettingsSaved(false);
+                    }}
+                    className={theme.inputFull}
+                  >
+                    <option value="today">Today</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                    <option value="stats">Stats</option>
+                    <option value="backlog">Backlog</option>
+                    <option value="profile">Profile</option>
+                  </select>
+                </label>
+
+                <label className="space-y-2 md:col-span-2">
+                  <span className="block text-sm font-bold text-neutral-600">
+                    Theme
+                  </span>
+
+                  <select
+                    value={userSettings.themePreference}
+                    onChange={(event) => {
+                      setUserSettings((currentSettings) => ({
+                        ...currentSettings,
+                        themePreference: event.target.value,
+                      }));
+                      setSettingsSaved(false);
+                    }}
+                    className={theme.inputFull}
+                  >
+                    <option value="manga-grayscale">
+                      Manga grayscale / sumi-e
+                    </option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={saveUserSettings}
+                  disabled={settingsSaving || settingsLoading}
+                  className={theme.primaryButton}
+                >
+                  {settingsSaving ? "Saving..." : "Save settings"}
+                </button>
+
+                {settingsLoading && (
+                  <p className="text-sm font-semibold text-neutral-500">
+                    Φόρτωση settings...
+                  </p>
+                )}
+
+                {settingsSaved && (
+                  <p className="text-sm font-semibold text-neutral-700">
+                    Τα settings αποθηκεύτηκαν.
+                  </p>
+                )}
+
+                {settingsError && (
+                  <p className="text-sm font-semibold text-neutral-700">
+                    {settingsError}
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      </>
+    );
+  }
+
   function renderBacklogView() {
     return (
       <>
@@ -1805,6 +2203,7 @@ function App() {
     { id: "month", label: "Month" },
     { id: "stats", label: "Stats" },
     { id: "backlog", label: "Backlog" },
+    { id: "profile", label: "Profile" },
   ];
 
   return (
@@ -1925,6 +2324,7 @@ function App() {
               {activeView === "month" && renderMonthView()}
               {activeView === "stats" && renderStatsView()}
               {activeView === "backlog" && renderBacklogView()}
+              {activeView === "profile" && renderProfileView()}
 
             </div>
           </main>
