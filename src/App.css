@@ -2,6 +2,14 @@
   min-height: 100vh;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+}
+
 .manga-brush-underline::after {
   content: "";
   display: block;
@@ -12,4 +20,11 @@
   background-repeat: no-repeat;
   background-position: left center;
   background-size: 100% 100%;
+}
+
+@media (max-width: 640px) {
+  .manga-brush-underline::after {
+    width: 88px;
+    height: 14px;
+  }
 }
