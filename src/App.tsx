@@ -1473,11 +1473,11 @@ function App() {
           <p className="text-sm font-bold text-neutral-500">{selectedMonth}</p>
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {weekDays.map((day) => (
             <div
               key={day}
-              className="py-2 text-center text-xs font-bold uppercase tracking-[0.14em] text-neutral-500"
+              className="py-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-500 sm:text-xs sm:tracking-[0.14em]"
             >
               {day}
             </div>
@@ -1507,21 +1507,21 @@ function App() {
                 onClick={() => {
                   setSelectedCalendarDate(calendarDay.date);
                 }}
-                className={`min-h-28 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] ${isSelectedCalendarDay
+                className={`min-h-20 rounded-xl border p-2 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] sm:min-h-28 sm:rounded-2xl sm:p-3 ${isSelectedCalendarDay
                   ? "border-neutral-950 bg-neutral-950 text-stone-50"
                   : calendarDay.isCurrentMonth
                     ? "border-neutral-300 bg-stone-50/75 text-neutral-950"
                     : "border-neutral-200 bg-stone-100/40 text-neutral-400"
                   } ${isToday ? "ring-2 ring-neutral-950/30 ring-offset-2 ring-offset-stone-100" : ""}`}
               >
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="text-sm font-bold">
+                <div className="mb-2 flex items-center justify-between sm:mb-4">
+                  <span className="text-xs font-bold sm:text-sm">
                     {calendarDay.dayNumber}
                   </span>
 
                   {isToday && (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isSelectedCalendarDay
+                      className={`hidden rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline-flex ${isSelectedCalendarDay
                         ? "bg-stone-50 text-neutral-950"
                         : "bg-neutral-950 text-stone-50"
                         }`}
@@ -1531,14 +1531,14 @@ function App() {
                   )}
                 </div>
 
-                <div className="flex min-h-12 items-center justify-center">
+                <div className="flex min-h-9 items-center justify-center sm:min-h-12">
                   {doneMinutesForDay > 0 ? (
-                    <p className="text-lg font-extrabold">
+                    <p className="text-xs font-extrabold sm:text-lg">
                       {formatMinutes(doneMinutesForDay)}
                     </p>
                   ) : (
                     <p
-                      className={`text-sm font-semibold ${isSelectedCalendarDay
+                      className={`text-xs font-semibold sm:text-sm ${isSelectedCalendarDay
                         ? "text-stone-400"
                         : "text-neutral-300"
                         }`}
@@ -2643,7 +2643,7 @@ function App() {
           className="pointer-events-none absolute bottom-0 right-4 z-0 hidden w-[360px] opacity-20 mix-blend-multiply xl:block"
         />
 
-        <div className="relative z-10 flex min-h-screen">
+        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row">
           <aside className={`${theme.sidebar} overflow-hidden`}>
             <img
               src="/theme/plant.png"
@@ -2704,13 +2704,7 @@ function App() {
 
           <main className={theme.main}>
             <div className={theme.pageContent}>
-              {renderAuthPanel()}
-              {tasksLoading && (
-                <div className={`${theme.cardSoft} mb-4 text-sm font-semibold text-neutral-600`}>
-                  Φόρτωση tasks από Firestore...
-                </div>
-              )}
-              <div className="mb-4 flex gap-2 overflow-x-auto lg:hidden">
+              <div className="sticky top-0 z-30 -mx-4 mb-4 flex gap-2 overflow-x-auto border-b border-neutral-300/70 bg-stone-100/95 px-4 py-3 backdrop-blur lg:hidden sm:-mx-5 sm:px-5">
                 {views.map((view) => {
                   const isActive = activeView === view.id;
 
@@ -2720,8 +2714,8 @@ function App() {
                       onClick={() => setActiveView(view.id)}
                       className={
                         isActive
-                          ? "relative shrink-0 overflow-hidden rounded-xl px-4 py-2 text-sm font-bold text-stone-50"
-                          : "shrink-0 rounded-xl border border-neutral-300 bg-stone-100 px-4 py-2 text-sm font-bold text-neutral-700"
+                          ? "relative min-h-11 shrink-0 overflow-hidden rounded-xl px-4 py-2 text-sm font-bold text-stone-50"
+                          : "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-neutral-300 bg-stone-100 px-4 py-2 text-sm font-bold text-neutral-700"
                       }
                     >
                       {isActive && (
@@ -2738,6 +2732,14 @@ function App() {
                   );
                 })}
               </div>
+              
+              {renderAuthPanel()}
+
+              {tasksLoading && (
+                <div className={`${theme.cardSoft} mb-4 text-sm font-semibold text-neutral-600`}>
+                  Φόρτωση tasks από Firestore...
+                </div>
+              )}
 
               {activeView === "today" && renderTodayView()}
               {activeView === "week" && renderWeekView()}
