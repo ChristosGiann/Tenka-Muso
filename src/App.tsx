@@ -63,6 +63,14 @@ function isValidView(value: unknown): value is View {
   );
 }
 
+type EmptyStateOptions = {
+  eyebrow?: string;
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
   const [selectedDate, setSelectedDate] = useState(getToday());
@@ -984,14 +992,56 @@ function App() {
     });
   }
 
-  function renderTaskList(taskList: Task[], emptyMessage: string) {
+  function renderEmptyState({
+    eyebrow = "Empty state",
+    title,
+    description,
+    actionLabel,
+    onAction,
+  }: EmptyStateOptions) {
+    return (
+      <div className={`${theme.innerPanel} p-5`}>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
+          {eyebrow}
+        </p>
+
+        <h4 className="mt-2 text-lg font-black text-neutral-950">
+          {title}
+        </h4>
+
+        <p className="mt-2 text-sm font-semibold leading-6 text-neutral-500">
+          {description}
+        </p>
+
+        {actionLabel && onAction && (
+          <button
+            type="button"
+            onClick={onAction}
+            className={`${theme.secondaryButton} mt-4`}
+          >
+            {actionLabel}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  function renderTaskList(
+    taskList: Task[],
+    emptyState: string | EmptyStateOptions
+  ) {
+    const resolvedEmptyState =
+      typeof emptyState === "string"
+        ? {
+          title: emptyState,
+          description:
+            "Χρησιμοποίησε τη φόρμα νέου task για να ξεκινήσεις να χτίζεις την ημέρα σου.",
+        }
+        : emptyState;
+
     return (
       <div className="space-y-3">
-        {taskList.length === 0 && (
-          <p className={`${theme.innerPanel} p-4 text-neutral-500`}>
-            {emptyMessage}
-          </p>
-        )}
+        {taskList.length === 0 && renderEmptyState(resolvedEmptyState)}
 
         {taskList.map((task) => {
           const duration = getDurationMinutes(task.startTime, task.endTime);
@@ -1449,7 +1499,12 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(dayTasks, "Δεν έχεις tasks για αυτή την ημέρα.")}
+              {renderTaskList(dayTasks, {
+                eyebrow: "Today",
+                title: "Δεν έχεις tasks για αυτή την ημέρα.",
+                description:
+                  "Πρόσθεσε 1-3 βασικά tasks ή γράψε ένα daily note για να ξεκινήσει η ημέρα σου καθαρά.",
+              })}
             </div>
           </section>
 
@@ -1464,11 +1519,13 @@ function App() {
               </h3>
 
               <div className="space-y-3">
-                {backlogItems.length === 0 && (
-                  <p className="text-sm text-neutral-500">
-                    Δεν έχεις backlog items ακόμα.
-                  </p>
-                )}
+                {backlogItems.length === 0 &&
+                  renderEmptyState({
+                    eyebrow: "Backlog",
+                    title: "Δεν έχεις backlog items ακόμα.",
+                    description:
+                      "Βάλε εδώ ιδέες, πράγματα για αργότερα ή tasks που δεν ανήκουν ακόμα σε συγκεκριμένη ημέρα.",
+                  })}
 
                 {backlogItems.slice(0, 5).map((item) => (
                   <div key={item.id} className={`${theme.innerPanel} p-4`}>
@@ -1737,7 +1794,12 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(weekTasks, "Δεν έχεις tasks για αυτή την εβδομάδα.")}
+              {renderTaskList(weekTasks, {
+                eyebrow: "Week",
+                title: "Δεν έχεις tasks για αυτή την εβδομάδα.",
+                description:
+                  "Πρόσθεσε tasks σε συγκεκριμένες ημέρες για να αρχίσει να φαίνεται η εβδομαδιαία εικόνα σου.",
+              })}
             </div>
           </section>
 
@@ -1791,7 +1853,12 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(monthTasks, "Δεν έχεις tasks για αυτόν τον μήνα.")}
+              {renderTaskList(monthTasks, {
+                eyebrow: "Month",
+                title: "Δεν έχεις tasks για αυτόν τον μήνα.",
+                description:
+                  "Μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο, το month view θα γίνει χρήσιμο για ανασκόπηση.",
+              })}
             </div>
           </section>
 
@@ -1865,7 +1932,16 @@ function App() {
           </h2>
         </header>
 
-        <StatCards stats={allTimeStats} />
+        {allTimeStats.totalTasks === 0 && (
+          <div className="mb-8">
+            {renderEmptyState({
+              eyebrow: "Stats",
+              title: "Δεν υπάρχουν ακόμα αρκετά δεδομένα.",
+              description:
+                "Τα στατιστικά θα αποκτήσουν νόημα μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο και κατηγορίες.",
+            })}
+          </div>
+        )}
 
         <div className="grid gap-8 xl:grid-cols-[1fr_1fr]">
           <CategoryStats stats={allTimeStats} />
@@ -2108,11 +2184,13 @@ function App() {
             </div>
 
             <div className="space-y-3">
-              {searchResults.length === 0 && (
-                <p className={`${theme.innerPanel} p-4 text-neutral-500`}>
-                  Δεν βρέθηκαν αποτελέσματα με αυτά τα φίλτρα.
-                </p>
-              )}
+              {searchResults.length === 0 &&
+                renderEmptyState({
+                  eyebrow: "Search",
+                  title: "Δεν βρέθηκαν αποτελέσματα.",
+                  description:
+                    "Δοκίμασε πιο γενική αναζήτηση ή καθάρισε κάποια φίλτρα. Τα daily journal notes εμφανίζονται μόνο όταν category/type/status είναι στο All.",
+                })}
 
               {searchResults.map((result) => {
                 if (result.kind === "dailyNote") {
@@ -2608,11 +2686,18 @@ function App() {
             </div>
 
             <div className="space-y-3">
-              {filteredBacklogItems.length === 0 && (
-                <p className={`${theme.innerPanel} p-4 text-neutral-500`}>
-                  Δεν υπάρχουν backlog items με αυτά τα φίλτρα.
-                </p>
-              )}
+              {filteredBacklogItems.length === 0 &&
+                renderEmptyState({
+                  eyebrow: backlogItems.length === 0 ? "Backlog" : "Filters",
+                  title:
+                    backlogItems.length === 0
+                      ? "Το backlog είναι άδειο."
+                      : "Δεν υπάρχουν backlog items με αυτά τα φίλτρα.",
+                  description:
+                    backlogItems.length === 0
+                      ? "Χρησιμοποίησε τη φόρμα αριστερά και διάλεξε type Backlog για να αποθηκεύσεις ιδέες για αργότερα."
+                      : "Δοκίμασε να αλλάξεις category, priority, status ή sort ώστε να εμφανιστούν περισσότερα items.",
+                })}
 
               {filteredBacklogItems.map((item) => (
                 <div
