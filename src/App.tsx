@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -132,6 +132,8 @@ function App() {
   const [searchDateTo, setSearchDateTo] = useState("");
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const taskFormRef = useRef<HTMLDivElement | null>(null);
+  const taskTitleInputRef = useRef<HTMLInputElement | null>(null);
 
   const customCategoryNames = customCategories.map((category) => category.name);
 
@@ -992,6 +994,35 @@ function App() {
     });
   }
 
+  function openQuickAddTask() {
+    setEditingTaskId(null);
+    setMobileMenuOpen(false);
+    setActiveView("today");
+
+    setForm({
+      title: "",
+      type: "task",
+      category: userSettings.defaultCategory,
+      date: selectedDate,
+      startTime: "",
+      endTime: "",
+      notes: "",
+      priority: "medium",
+      backlogStatus: "idea",
+    });
+
+    window.setTimeout(() => {
+      taskFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      taskTitleInputRef.current?.focus({
+        preventScroll: true,
+      });
+    }, 100);
+  }
+
   function renderEmptyState({
     eyebrow = "Empty state",
     title,
@@ -1114,13 +1145,14 @@ function App() {
 
   function renderForm() {
     return (
-      <div className={theme.card}>
+      <div ref={taskFormRef} className={theme.card}>
         <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
           {editingTaskId ? "Επεξεργασία task" : "Νέο task / routine / backlog item"}
         </h3>
 
         <div className="grid gap-3 md:grid-cols-2">
           <input
+            ref={taskTitleInputRef}
             placeholder="Τίτλος π.χ. Προπόνηση πόδια"
             value={form.title}
             onChange={(event) =>
@@ -2963,6 +2995,19 @@ function App() {
               {activeView === "backlog" && renderBacklogView()}
               {activeView === "search" && renderSearchView()}
               {activeView === "profile" && renderProfileView()}
+
+              {!mobileMenuOpen && activeView !== "profile" && (
+                <button
+                  type="button"
+                  onClick={openQuickAddTask}
+                  className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-neutral-950 text-3xl font-black leading-none text-stone-50 shadow-[0_14px_30px_rgba(23,23,23,0.28)] transition active:scale-95 lg:hidden"
+                >
+                  <span className="sr-only">Quick add task</span>
+                  <span aria-hidden="true" className="-mt-1">
+                    +
+                  </span>
+                </button>
+              )}
 
             </div>
           </main>
