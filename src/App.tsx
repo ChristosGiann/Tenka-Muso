@@ -785,7 +785,7 @@ function App() {
     }
   }
 
-    function exportUserData() {
+  function exportUserData() {
     const exportedAt = new Date().toISOString();
 
     const backupData = {
@@ -2472,37 +2472,37 @@ function App() {
                   </p>
                 )}
 
-                              <div className={`${theme.innerPanel} mt-6 p-4`}>
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-neutral-950">
-                      Backup export
-                    </p>
+                <div className={`${theme.innerPanel} mt-6 p-4`}>
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-neutral-950">
+                        Backup export
+                      </p>
 
-                    <p className="mt-1 text-sm font-semibold text-neutral-500">
-                      Κατέβασε tasks, daily notes, custom categories και settings σε JSON.
-                    </p>
+                      <p className="mt-1 text-sm font-semibold text-neutral-500">
+                        Κατέβασε tasks, daily notes, custom categories και settings σε JSON.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={exportUserData}
+                      disabled={
+                        !firebaseUser ||
+                        tasksLoading ||
+                        dailyNotesLoading ||
+                        settingsLoading
+                      }
+                      className={theme.secondaryButton}
+                    >
+                      Export JSON
+                    </button>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={exportUserData}
-                    disabled={
-                      !firebaseUser ||
-                      tasksLoading ||
-                      dailyNotesLoading ||
-                      settingsLoading
-                    }
-                    className={theme.secondaryButton}
-                  >
-                    Export JSON
-                  </button>
+                  <p className="mt-3 text-xs font-semibold text-neutral-500">
+                    Το export είναι μόνο για backup. Δεν κάνει import ή αλλαγή στα δεδομένα σου.
+                  </p>
                 </div>
-
-                <p className="mt-3 text-xs font-semibold text-neutral-500">
-                  Το export είναι μόνο για backup. Δεν κάνει import ή αλλαγή στα δεδομένα σου.
-                </p>
-              </div>
               </div>
             </div>
           </section>
