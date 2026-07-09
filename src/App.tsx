@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -63,6 +63,14 @@ function isValidView(value: unknown): value is View {
   );
 }
 
+type EmptyStateOptions = {
+  eyebrow?: string;
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
   const [selectedDate, setSelectedDate] = useState(getToday());
@@ -122,6 +130,10 @@ function App() {
   >("all");
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const taskFormRef = useRef<HTMLDivElement | null>(null);
+  const taskTitleInputRef = useRef<HTMLInputElement | null>(null);
 
   const customCategoryNames = customCategories.map((category) => category.name);
 
@@ -783,6 +795,46 @@ function App() {
     }
   }
 
+  function exportUserData() {
+    const exportedAt = new Date().toISOString();
+
+    const backupData = {
+      app: "Tenka Musō",
+      version: 1,
+      exportedAt,
+      user: {
+        uid: firebaseUser?.uid ?? null,
+        email: firebaseUser?.email ?? null,
+        displayName: firebaseUser?.displayName ?? null,
+        isAnonymous: firebaseUser?.isAnonymous ?? null,
+      },
+      data: {
+        tasks,
+        dailyNotes,
+        customCategories,
+        userSettings,
+      },
+    };
+
+    const json = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([json], {
+      type: "application/json",
+    });
+
+    const backupDate = exportedAt.slice(0, 10);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `tenka-muso-backup-${backupDate}.json`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  }
+
   async function toggleDone(taskId: string) {
     if (!firebaseUser) return;
 
@@ -942,14 +994,85 @@ function App() {
     });
   }
 
-  function renderTaskList(taskList: Task[], emptyMessage: string) {
+  function openQuickAddTask() {
+    setEditingTaskId(null);
+    setMobileMenuOpen(false);
+    setActiveView("today");
+
+    setForm({
+      title: "",
+      type: "task",
+      category: userSettings.defaultCategory,
+      date: selectedDate,
+      startTime: "",
+      endTime: "",
+      notes: "",
+      priority: "medium",
+      backlogStatus: "idea",
+    });
+
+    window.setTimeout(() => {
+      taskFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      taskTitleInputRef.current?.focus({
+        preventScroll: true,
+      });
+    }, 100);
+  }
+
+  function renderEmptyState({
+    eyebrow = "Empty state",
+    title,
+    description,
+    actionLabel,
+    onAction,
+  }: EmptyStateOptions) {
+    return (
+      <div className={`${theme.innerPanel} p-5`}>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
+          {eyebrow}
+        </p>
+
+        <h4 className="mt-2 text-lg font-black text-neutral-950">
+          {title}
+        </h4>
+
+        <p className="mt-2 text-sm font-semibold leading-6 text-neutral-500">
+          {description}
+        </p>
+
+        {actionLabel && onAction && (
+          <button
+            type="button"
+            onClick={onAction}
+            className={`${theme.secondaryButton} mt-4`}
+          >
+            {actionLabel}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  function renderTaskList(
+    taskList: Task[],
+    emptyState: string | EmptyStateOptions
+  ) {
+    const resolvedEmptyState =
+      typeof emptyState === "string"
+        ? {
+          title: emptyState,
+          description:
+            "Χρησιμοποίησε τη φόρμα νέου task για να ξεκινήσεις να χτίζεις την ημέρα σου.",
+        }
+        : emptyState;
+
     return (
       <div className="space-y-3">
-        {taskList.length === 0 && (
-          <p className={`${theme.innerPanel} p-4 text-neutral-500`}>
-            {emptyMessage}
-          </p>
-        )}
+        {taskList.length === 0 && renderEmptyState(resolvedEmptyState)}
 
         {taskList.map((task) => {
           const duration = getDurationMinutes(task.startTime, task.endTime);
@@ -1022,13 +1145,14 @@ function App() {
 
   function renderForm() {
     return (
-      <div className={theme.card}>
+      <div ref={taskFormRef} className={theme.card}>
         <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
           {editingTaskId ? "Επεξεργασία task" : "Νέο task / routine / backlog item"}
         </h3>
 
         <div className="grid gap-3 md:grid-cols-2">
           <input
+            ref={taskTitleInputRef}
             placeholder="Τίτλος π.χ. Προπόνηση πόδια"
             value={form.title}
             onChange={(event) =>
@@ -1407,7 +1531,12 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(dayTasks, "Δεν έχεις tasks για αυτή την ημέρα.")}
+              {renderTaskList(dayTasks, {
+                eyebrow: "Today",
+                title: "Δεν έχεις tasks για αυτή την ημέρα.",
+                description:
+                  "Πρόσθεσε 1-3 βασικά tasks ή γράψε ένα daily note για να ξεκινήσει η ημέρα σου καθαρά.",
+              })}
             </div>
           </section>
 
@@ -1422,11 +1551,13 @@ function App() {
               </h3>
 
               <div className="space-y-3">
-                {backlogItems.length === 0 && (
-                  <p className="text-sm text-neutral-500">
-                    Δεν έχεις backlog items ακόμα.
-                  </p>
-                )}
+                {backlogItems.length === 0 &&
+                  renderEmptyState({
+                    eyebrow: "Backlog",
+                    title: "Δεν έχεις backlog items ακόμα.",
+                    description:
+                      "Βάλε εδώ ιδέες, πράγματα για αργότερα ή tasks που δεν ανήκουν ακόμα σε συγκεκριμένη ημέρα.",
+                  })}
 
                 {backlogItems.slice(0, 5).map((item) => (
                   <div key={item.id} className={`${theme.innerPanel} p-4`}>
@@ -1548,6 +1679,116 @@ function App() {
                   )}
                 </div>
               </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderMonthAgenda() {
+    return (
+      <div className={theme.card}>
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className={theme.eyebrow}>Agenda</p>
+
+            <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
+              Tasks επιλεγμένης ημέρας
+            </h3>
+
+            <p className="mt-3 text-sm font-semibold text-neutral-500">
+              {selectedCalendarDate}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openDateInTodayView(selectedCalendarDate)}
+            className={`${theme.secondaryButton} text-sm`}
+          >
+            Δες την ημέρα
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {selectedCalendarTasks.length === 0 &&
+            renderEmptyState({
+              eyebrow: "Agenda",
+              title: "Δεν υπάρχουν tasks για αυτή την ημέρα.",
+              description:
+                "Πάτα άλλη ημέρα στο calendar ή πάτα «Δες την ημέρα» για να προσθέσεις νέο task.",
+            })}
+
+          {selectedCalendarTasks.map((task) => {
+            const duration = getDurationMinutes(task.startTime, task.endTime);
+
+            return (
+              <div
+                key={task.id}
+                className={`${theme.innerPanel} flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between`}
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={theme.badge}>{task.category}</span>
+                    <span className={theme.badge}>{task.type}</span>
+                    <span className={theme.badge}>{task.status}</span>
+
+                    {duration > 0 && (
+                      <span className={theme.darkBadge}>
+                        {formatMinutes(duration)}
+                      </span>
+                    )}
+                  </div>
+
+                  <h4 className="mt-2 text-lg font-bold text-neutral-950">
+                    {task.status === "done" ? "✓ " : ""}
+                    {task.title}
+                  </h4>
+
+                  <p className="text-sm font-semibold text-neutral-500">
+                    {task.startTime && task.endTime
+                      ? `${task.date} • ${task.startTime} - ${task.endTime}`
+                      : task.date}
+                  </p>
+
+                  {task.notes && (
+                    <p className="mt-2 text-sm leading-6 text-neutral-600">
+                      {task.notes}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openDateInTodayView(task.date)}
+                    className={theme.smallButton}
+                  >
+                    Open day
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => startEditTaskFromSearch(task)}
+                    className={theme.smallButton}
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleDone(task.id)}
+                    className={
+                      task.status === "done"
+                        ? theme.smallButton
+                        : "rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50 transition hover:bg-neutral-800"
+                    }
+                  >
+                    {task.status === "done" ? "Undo" : "Done"}
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -1695,7 +1936,12 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(weekTasks, "Δεν έχεις tasks για αυτή την εβδομάδα.")}
+              {renderTaskList(weekTasks, {
+                eyebrow: "Week",
+                title: "Δεν έχεις tasks για αυτή την εβδομάδα.",
+                description:
+                  "Πρόσθεσε tasks σε συγκεκριμένες ημέρες για να αρχίσει να φαίνεται η εβδομαδιαία εικόνα σου.",
+              })}
             </div>
           </section>
 
@@ -1738,6 +1984,8 @@ function App() {
           <section className="space-y-8">
             {renderMonthCalendar()}
 
+            {renderMonthAgenda()}
+
             <div className={theme.card}>
               <div className="mb-5 flex items-center justify-between">
                 <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
@@ -1749,7 +1997,12 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(monthTasks, "Δεν έχεις tasks για αυτόν τον μήνα.")}
+              {renderTaskList(monthTasks, {
+                eyebrow: "Month",
+                title: "Δεν έχεις tasks για αυτόν τον μήνα.",
+                description:
+                  "Μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο, το month view θα γίνει χρήσιμο για ανασκόπηση.",
+              })}
             </div>
           </section>
 
@@ -1823,7 +2076,16 @@ function App() {
           </h2>
         </header>
 
-        <StatCards stats={allTimeStats} />
+        {allTimeStats.totalTasks === 0 && (
+          <div className="mb-8">
+            {renderEmptyState({
+              eyebrow: "Stats",
+              title: "Δεν υπάρχουν ακόμα αρκετά δεδομένα.",
+              description:
+                "Τα στατιστικά θα αποκτήσουν νόημα μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο και κατηγορίες.",
+            })}
+          </div>
+        )}
 
         <div className="grid gap-8 xl:grid-cols-[1fr_1fr]">
           <CategoryStats stats={allTimeStats} />
@@ -2066,11 +2328,13 @@ function App() {
             </div>
 
             <div className="space-y-3">
-              {searchResults.length === 0 && (
-                <p className={`${theme.innerPanel} p-4 text-neutral-500`}>
-                  Δεν βρέθηκαν αποτελέσματα με αυτά τα φίλτρα.
-                </p>
-              )}
+              {searchResults.length === 0 &&
+                renderEmptyState({
+                  eyebrow: "Search",
+                  title: "Δεν βρέθηκαν αποτελέσματα.",
+                  description:
+                    "Δοκίμασε πιο γενική αναζήτηση ή καθάρισε κάποια φίλτρα. Τα daily journal notes εμφανίζονται μόνο όταν category/type/status είναι στο All.",
+                })}
 
               {searchResults.map((result) => {
                 if (result.kind === "dailyNote") {
@@ -2429,6 +2693,38 @@ function App() {
                     {settingsError}
                   </p>
                 )}
+
+                <div className={`${theme.innerPanel} mt-6 p-4`}>
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-neutral-950">
+                        Backup export
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-neutral-500">
+                        Κατέβασε tasks, daily notes, custom categories και settings σε JSON.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={exportUserData}
+                      disabled={
+                        !firebaseUser ||
+                        tasksLoading ||
+                        dailyNotesLoading ||
+                        settingsLoading
+                      }
+                      className={theme.secondaryButton}
+                    >
+                      Export JSON
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-xs font-semibold text-neutral-500">
+                    Το export είναι μόνο για backup. Δεν κάνει import ή αλλαγή στα δεδομένα σου.
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -2534,11 +2830,18 @@ function App() {
             </div>
 
             <div className="space-y-3">
-              {filteredBacklogItems.length === 0 && (
-                <p className={`${theme.innerPanel} p-4 text-neutral-500`}>
-                  Δεν υπάρχουν backlog items με αυτά τα φίλτρα.
-                </p>
-              )}
+              {filteredBacklogItems.length === 0 &&
+                renderEmptyState({
+                  eyebrow: backlogItems.length === 0 ? "Backlog" : "Filters",
+                  title:
+                    backlogItems.length === 0
+                      ? "Το backlog είναι άδειο."
+                      : "Δεν υπάρχουν backlog items με αυτά τα φίλτρα.",
+                  description:
+                    backlogItems.length === 0
+                      ? "Χρησιμοποίησε τη φόρμα αριστερά και διάλεξε type Backlog για να αποθηκεύσεις ιδέες για αργότερα."
+                      : "Δοκίμασε να αλλάξεις category, priority, status ή sort ώστε να εμφανιστούν περισσότερα items.",
+                })}
 
               {filteredBacklogItems.map((item) => (
                 <div
@@ -2626,6 +2929,14 @@ function App() {
     { id: "profile", label: "Profile" },
   ];
 
+  const activeViewLabel =
+    views.find((view) => view.id === activeView)?.label ?? activeView;
+
+  function handleViewChange(viewId: View) {
+    setActiveView(viewId);
+    setMobileMenuOpen(false);
+  }
+
   return (
     <div className={theme.appShell}>
       <div className={`${theme.pageBackdrop} ${theme.paperTexture}`}>
@@ -2672,7 +2983,7 @@ function App() {
                 return (
                   <button
                     key={view.id}
-                    onClick={() => setActiveView(view.id)}
+                    onClick={() => handleViewChange(view.id)}
                     className={
                       isActive
                         ? "relative w-full overflow-visible px-4 py-3 text-left text-sm font-bold text-stone-50"
@@ -2704,35 +3015,83 @@ function App() {
 
           <main className={theme.main}>
             <div className={theme.pageContent}>
-              <div className="sticky top-0 z-30 -mx-4 mb-4 flex gap-2 overflow-x-auto border-b border-neutral-300/70 bg-stone-100/95 px-4 py-3 backdrop-blur lg:hidden sm:-mx-5 sm:px-5">
-                {views.map((view) => {
-                  const isActive = activeView === view.id;
+              <div className="sticky top-0 z-40 -mx-4 mb-4 border-b border-neutral-300/70 bg-stone-100/95 backdrop-blur lg:hidden sm:-mx-5">
+                <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
+                    aria-expanded={mobileMenuOpen}
+                    aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+                    className="inline-flex min-h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-neutral-300 bg-stone-100 text-neutral-950 shadow-[0_8px_20px_rgba(23,23,23,0.08)] transition active:scale-[0.98]"
+                  >
+                    <span className="sr-only">
+                      {mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+                    </span>
 
-                  return (
-                    <button
-                      key={view.id}
-                      onClick={() => setActiveView(view.id)}
-                      className={
-                        isActive
-                          ? "relative min-h-11 shrink-0 overflow-hidden rounded-xl px-4 py-2 text-sm font-bold text-stone-50"
-                          : "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-neutral-300 bg-stone-100 px-4 py-2 text-sm font-bold text-neutral-700"
-                      }
-                    >
-                      {isActive && (
-                        <img
-                          src="/theme/brush-1.png"
-                          alt=""
-                          aria-hidden="true"
-                          className="pointer-events-none absolute inset-0 h-full w-full scale-x-110 object-fill opacity-95"
-                        />
-                      )}
+                    <span className="flex flex-col gap-1.5" aria-hidden="true">
+                      <span
+                        className={`block h-0.5 w-5 rounded-full bg-neutral-950 transition ${mobileMenuOpen ? "translate-y-2 rotate-45" : ""
+                          }`}
+                      />
+                      <span
+                        className={`block h-0.5 w-5 rounded-full bg-neutral-950 transition ${mobileMenuOpen ? "opacity-0" : ""
+                          }`}
+                      />
+                      <span
+                        className={`block h-0.5 w-5 rounded-full bg-neutral-950 transition ${mobileMenuOpen ? "-translate-y-2 -rotate-45" : ""
+                          }`}
+                      />
+                    </span>
+                  </button>
 
-                      <span className="relative z-10">{view.label}</span>
-                    </button>
-                  );
-                })}
+                  <div className="min-w-0 flex-1 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">
+                      Current view
+                    </p>
+
+                    <p className="truncate text-sm font-black text-neutral-950">
+                      {activeViewLabel}
+                    </p>
+                  </div>
+
+                  <div className="w-11 shrink-0" aria-hidden="true" />
+                </div>
+
+                {mobileMenuOpen && (
+                  <div className="border-t border-neutral-300/70 px-4 pb-4 sm:px-5">
+                    <nav className="grid gap-2 pt-3">
+                      {views.map((view) => {
+                        const isActive = activeView === view.id;
+
+                        return (
+                          <button
+                            key={view.id}
+                            type="button"
+                            onClick={() => handleViewChange(view.id)}
+                            className={
+                              isActive
+                                ? "relative min-h-12 w-full overflow-hidden rounded-xl px-4 py-3 text-left text-sm font-bold text-stone-50"
+                                : "min-h-12 w-full rounded-xl border border-neutral-300 bg-stone-100 px-4 py-3 text-left text-sm font-bold text-neutral-700 transition hover:bg-stone-200"
+                            }
+                          >
+                            {isActive && (
+                              <img
+                                src="/theme/brush-1.png"
+                                alt=""
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-0 h-full w-full scale-x-110 object-fill opacity-95"
+                              />
+                            )}
+
+                            <span className="relative z-10">{view.label}</span>
+                          </button>
+                        );
+                      })}
+                    </nav>
+                  </div>
+                )}
               </div>
-              
+
               {renderAuthPanel()}
 
               {tasksLoading && (
@@ -2748,6 +3107,19 @@ function App() {
               {activeView === "backlog" && renderBacklogView()}
               {activeView === "search" && renderSearchView()}
               {activeView === "profile" && renderProfileView()}
+
+              {!mobileMenuOpen && activeView !== "profile" && (
+                <button
+                  type="button"
+                  onClick={openQuickAddTask}
+                  className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-neutral-950 text-3xl font-black leading-none text-stone-50 shadow-[0_14px_30px_rgba(23,23,23,0.28)] transition active:scale-95 lg:hidden"
+                >
+                  <span className="sr-only">Quick add task</span>
+                  <span aria-hidden="true" className="-mt-1">
+                    +
+                  </span>
+                </button>
+              )}
 
             </div>
           </main>
