@@ -122,6 +122,10 @@ function App() {
     "newest" | "priority" | "category"
   >("newest");
 
+  const [backlogScheduleDates, setBacklogScheduleDates] = useState<
+    Record<string, string>
+  >({});
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchCategoryFilter, setSearchCategoryFilter] = useState("all");
   const [searchTypeFilter, setSearchTypeFilter] = useState<TaskType | "all">("all");
@@ -2755,19 +2759,11 @@ function App() {
                 </h3>
 
                 <p className="mt-3 text-sm font-semibold text-neutral-500">
-                  {filteredBacklogItems.length}/{backlogItems.length} items · Διάλεξε ημερομηνία για schedule
+                  {filteredBacklogItems.length}/{backlogItems.length} items · Διάλεξε ημερομηνία σε κάθε item
                 </p>
               </div>
 
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(event) => {
-                  setSelectedDate(event.target.value);
-                  setSelectedMonth(getMonthFromDate(event.target.value));
-                }}
-                className={theme.input}
-              />
+
             </div>
 
             <div className="mb-5 grid gap-3 md:grid-cols-4">
@@ -2872,27 +2868,50 @@ function App() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => startEditTask(item)}
-                      className={theme.smallButton}
-                    >
-                      Edit
-                    </button>
+                  <div className="flex flex-col gap-3 md:items-end">
+                    <label className="w-full space-y-2 md:w-44">
+                      <span className="block text-xs font-bold uppercase tracking-[0.14em] text-neutral-400">
+                        Schedule date
+                      </span>
 
-                    <button
-                      onClick={() => scheduleBacklogItem(item)}
-                      className="rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50 transition hover:bg-neutral-800"
-                    >
-                      Schedule
-                    </button>
+                      <input
+                        type="date"
+                        value={getBacklogScheduleDate(item.id)}
+                        onChange={(event) =>
+                          setBacklogScheduleDates((currentDates) => ({
+                            ...currentDates,
+                            [item.id]: event.target.value,
+                          }))
+                        }
+                        className={theme.inputFull}
+                      />
+                    </label>
 
-                    <button
-                      onClick={() => requestDeleteTask(item)}
-                      className={theme.dangerButton}
-                    >
-                      Delete
-                    </button>
+                    <div className="flex flex-wrap gap-2 md:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => startEditTask(item)}
+                        className={theme.smallButton}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => scheduleBacklogItem(item)}
+                        className="rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50 transition hover:bg-neutral-800"
+                      >
+                        Schedule
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => requestDeleteTask(item)}
+                        className={theme.dangerButton}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2903,20 +2922,33 @@ function App() {
     );
   }
 
+  function getBacklogScheduleDate(taskId: string) {
+    return backlogScheduleDates[taskId] ?? selectedDate;
+  }
+
   async function scheduleBacklogItem(task: Task) {
     if (!firebaseUser) return;
+
+    const scheduleDate = getBacklogScheduleDate(task.id);
+    if (!scheduleDate) return;
 
     const taskRef = doc(db, "users", firebaseUser.uid, "tasks", task.id);
 
     await updateDoc(taskRef, {
       type: "task",
-      date: selectedDate,
+      date: scheduleDate,
       status: "pending",
       backlogStatus: "planned",
       updatedAt: serverTimestamp(),
     });
 
-    setActiveView("today");
+    setBacklogScheduleDates((currentDates) => {
+      const nextDates = { ...currentDates };
+      delete nextDates[task.id];
+      return nextDates;
+    });
+
+    openDateInTodayView(scheduleDate);
   }
 
   const views: { id: View; label: string }[] = [
