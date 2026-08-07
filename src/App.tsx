@@ -39,16 +39,13 @@ import {
   getMonthFromDate,
   getToday,
   getWeekDatesFromDate,
-  weekDays,
 } from "./utils/date";
-import { formatMinutes, getDurationMinutes } from "./utils/time";
+import { getDurationMinutes } from "./utils/time";
 import { buildStats } from "./utils/stats";
 import { theme } from "./styles/theme";
 import "./App.css";
 
 import { ConfirmModal } from "./components/ConfirmModal";
-import { CategoryStats } from "./components/CategoryStats";
-import { EmptyState, type EmptyStateOptions } from "./components/EmptyState";
 import { TaskForm } from "./components/TaskForm";
 import { AuthPanel } from "./components/AuthPanel";
 import { DailyNoteCard } from "./components/DailyNoteCard";
@@ -1031,10 +1028,6 @@ function App() {
     }, 100);
   }
 
-  function renderEmptyState(options: EmptyStateOptions) {
-    return <EmptyState {...options} />;
-  }
-
   function renderForm() {
     return (
       <TaskForm
@@ -1115,215 +1108,6 @@ function App() {
     );
   }
 
-  function renderMonthCalendar() {
-    return (
-      <div className={theme.card}>
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-              Calendar μήνα
-            </h3>
-
-            <p className="mt-3 text-sm font-semibold text-neutral-500">
-              Πάτα σε μια ημέρα για να δεις τα stats της.
-            </p>
-          </div>
-
-          <p className="text-sm font-bold text-neutral-500">{selectedMonth}</p>
-        </div>
-
-        <div className="grid grid-cols-7 gap-1 sm:gap-2">
-          {weekDays.map((day) => (
-            <div
-              key={day}
-              className="py-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-500 sm:text-xs sm:tracking-[0.14em]"
-            >
-              {day}
-            </div>
-          ))}
-
-          {calendarDays.map((calendarDay) => {
-            const tasksForDay = monthTasks.filter(
-              (task) => task.date === calendarDay.date
-            );
-
-            const doneTasksForDay = tasksForDay.filter(
-              (task) => task.status === "done"
-            );
-
-            const doneMinutesForDay = doneTasksForDay.reduce((sum, task) => {
-              return sum + getDurationMinutes(task.startTime, task.endTime);
-            }, 0);
-
-            const isToday = calendarDay.date === getToday();
-            const isSelectedCalendarDay =
-              calendarDay.date === selectedCalendarDate;
-
-            return (
-              <button
-                key={calendarDay.date}
-                type="button"
-                onClick={() => {
-                  setSelectedCalendarDate(calendarDay.date);
-                }}
-                className={`min-h-20 rounded-xl border p-2 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] sm:min-h-28 sm:rounded-2xl sm:p-3 ${isSelectedCalendarDay
-                  ? "border-neutral-950 bg-neutral-950 text-stone-50"
-                  : calendarDay.isCurrentMonth
-                    ? "border-neutral-300 bg-stone-50/75 text-neutral-950"
-                    : "border-neutral-200 bg-stone-100/40 text-neutral-400"
-                  } ${isToday ? "ring-2 ring-neutral-950/30 ring-offset-2 ring-offset-stone-100" : ""}`}
-              >
-                <div className="mb-2 flex items-center justify-between sm:mb-4">
-                  <span className="text-xs font-bold sm:text-sm">
-                    {calendarDay.dayNumber}
-                  </span>
-
-                  {isToday && (
-                    <span
-                      className={`hidden rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline-flex ${isSelectedCalendarDay
-                        ? "bg-stone-50 text-neutral-950"
-                        : "bg-neutral-950 text-stone-50"
-                        }`}
-                    >
-                      Today
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex min-h-9 items-center justify-center sm:min-h-12">
-                  {doneMinutesForDay > 0 ? (
-                    <p className="text-xs font-extrabold sm:text-lg">
-                      {formatMinutes(doneMinutesForDay)}
-                    </p>
-                  ) : (
-                    <p
-                      className={`text-xs font-semibold sm:text-sm ${isSelectedCalendarDay
-                        ? "text-stone-400"
-                        : "text-neutral-300"
-                        }`}
-                    >
-                      —
-                    </p>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  function renderMonthAgenda() {
-    return (
-      <div className={theme.card}>
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className={theme.eyebrow}>Agenda</p>
-
-            <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-              Tasks επιλεγμένης ημέρας
-            </h3>
-
-            <p className="mt-3 text-sm font-semibold text-neutral-500">
-              {selectedCalendarDate}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => openDateInTodayView(selectedCalendarDate)}
-            className={`${theme.secondaryButton} text-sm`}
-          >
-            Δες την ημέρα
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {selectedCalendarTasks.length === 0 &&
-            renderEmptyState({
-              eyebrow: "Agenda",
-              title: "Δεν υπάρχουν tasks για αυτή την ημέρα.",
-              description:
-                "Πάτα άλλη ημέρα στο calendar ή πάτα «Δες την ημέρα» για να προσθέσεις νέο task.",
-            })}
-
-          {selectedCalendarTasks.map((task) => {
-            const duration = getDurationMinutes(task.startTime, task.endTime);
-
-            return (
-              <div
-                key={task.id}
-                className={`${theme.innerPanel} flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between`}
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={theme.badge}>{task.category}</span>
-                    <span className={theme.badge}>{task.type}</span>
-                    <span className={theme.badge}>{task.status}</span>
-
-                    {duration > 0 && (
-                      <span className={theme.darkBadge}>
-                        {formatMinutes(duration)}
-                      </span>
-                    )}
-                  </div>
-
-                  <h4 className="mt-2 text-lg font-bold text-neutral-950">
-                    {task.status === "done" ? "✓ " : ""}
-                    {task.title}
-                  </h4>
-
-                  <p className="text-sm font-semibold text-neutral-500">
-                    {task.startTime && task.endTime
-                      ? `${task.date} • ${task.startTime} - ${task.endTime}`
-                      : task.date}
-                  </p>
-
-                  {task.notes && (
-                    <p className="mt-2 text-sm leading-6 text-neutral-600">
-                      {task.notes}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openDateInTodayView(task.date)}
-                    className={theme.smallButton}
-                  >
-                    Open day
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => startEditTaskFromSearch(task)}
-                    className={theme.smallButton}
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleDone(task.id)}
-                    className={
-                      task.status === "done"
-                        ? theme.smallButton
-                        : "rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50 transition hover:bg-neutral-800"
-                    }
-                  >
-                    {task.status === "done" ? "Undo" : "Done"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
   function renderWeekView() {
     const weekStart = weekDates[0];
     const weekEnd = weekDates[6];
@@ -1352,72 +1136,24 @@ function App() {
     return (
       <MonthView
         selectedMonth={selectedMonth}
+        selectedCalendarDate={selectedCalendarDate}
+        selectedCalendarDailyNote={dailyNotes[selectedCalendarDate]}
         monthStats={monthStats}
+        selectedCalendarStats={selectedCalendarStats}
         monthTasks={monthTasks}
-        renderMonthCalendar={renderMonthCalendar}
-        renderMonthAgenda={renderMonthAgenda}
-        renderSelectedCalendarDayPanel={renderSelectedCalendarDayPanel}
+        selectedCalendarTasks={selectedCalendarTasks}
+        calendarDays={calendarDays}
         onSelectedMonthChange={(newMonth) => {
           setSelectedMonth(newMonth);
           setSelectedCalendarDate(`${newMonth}-01`);
         }}
+        onSelectedCalendarDateChange={setSelectedCalendarDate}
+        onOpenDate={openDateInTodayView}
         onEditTask={startEditTask}
+        onEditAgendaTask={startEditTaskFromSearch}
         onToggleDone={toggleDone}
         onDeleteTask={requestDeleteTask}
       />
-    );
-  }
-
-  function renderSelectedCalendarDayPanel() {
-    return (
-      <div className="space-y-6">
-        <CategoryStats stats={selectedCalendarStats} />
-
-        <div className={theme.card}>
-          <p className={theme.eyebrow}>Επιλεγμένη ημέρα</p>
-
-          <h3 className="mt-2 text-2xl font-bold text-neutral-950">
-            {selectedCalendarDate}
-          </h3>
-
-          <div className="mt-5 space-y-3 text-sm font-semibold text-neutral-700">
-            <p>Tasks: {selectedCalendarStats.totalTasks}</p>
-            <p>Done: {selectedCalendarStats.doneTasks}</p>
-            <p>Χρόνος: {formatMinutes(selectedCalendarStats.totalMinutes)}</p>
-            <p>Completion: {selectedCalendarStats.completionRate}%</p>
-          </div>
-
-          <div className="mt-5">
-            <p className="text-sm font-bold text-neutral-700">Daily note</p>
-
-            {dailyNotes[selectedCalendarDate] ? (
-              <p className={`${theme.innerPanel} mt-2 p-4 text-sm leading-6 text-neutral-600`}>
-                {dailyNotes[selectedCalendarDate]}
-              </p>
-            ) : (
-              <p className="mt-2 text-sm font-semibold text-neutral-400">
-                Δεν υπάρχει note για αυτή την ημέρα.
-              </p>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedDate(selectedCalendarDate);
-              setSelectedMonth(getMonthFromDate(selectedCalendarDate));
-              setForm((currentForm) => ({
-                ...currentForm,
-                date: selectedCalendarDate,
-              }));
-              setActiveView("today");
-            }}
-            className={`${theme.primaryButton} mt-5 w-full text-sm`}
-          >
-            Δες την ημέρα
-          </button>
-        </div>
-      </div>
     );
   }
 

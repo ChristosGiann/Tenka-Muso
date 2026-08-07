@@ -1,32 +1,52 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 
 import type { Task } from "../types";
 import { theme } from "../styles/theme";
 import { StatCards } from "../components/StatCards";
 import { TaskList } from "../components/TaskList";
+import { CategoryStats } from "../components/CategoryStats";
+import { MonthCalendar } from "./month/MonthCalendar";
+import { MonthAgenda } from "./month/MonthAgenda";
+import { SelectedCalendarDayPanel } from "./month/SelectedCalendarDayPanel";
+
+type CalendarDay = {
+  date: string;
+  dayNumber: number | string;
+  isCurrentMonth: boolean;
+};
 
 type MonthViewProps = {
   selectedMonth: string;
+  selectedCalendarDate: string;
+  selectedCalendarDailyNote: string | undefined;
   monthStats: ComponentProps<typeof StatCards>["stats"];
+  selectedCalendarStats: ComponentProps<typeof CategoryStats>["stats"];
   monthTasks: Task[];
-  renderMonthCalendar: () => ReactNode;
-  renderMonthAgenda: () => ReactNode;
-  renderSelectedCalendarDayPanel: () => ReactNode;
+  selectedCalendarTasks: Task[];
+  calendarDays: CalendarDay[];
   onSelectedMonthChange: (month: string) => void;
+  onSelectedCalendarDateChange: (date: string) => void;
+  onOpenDate: (date: string) => void;
   onEditTask: (task: Task) => void;
+  onEditAgendaTask: (task: Task) => void;
   onToggleDone: (taskId: string) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
 };
 
 export function MonthView({
   selectedMonth,
+  selectedCalendarDate,
+  selectedCalendarDailyNote,
   monthStats,
+  selectedCalendarStats,
   monthTasks,
-  renderMonthCalendar,
-  renderMonthAgenda,
-  renderSelectedCalendarDayPanel,
+  selectedCalendarTasks,
+  calendarDays,
   onSelectedMonthChange,
+  onSelectedCalendarDateChange,
+  onOpenDate,
   onEditTask,
+  onEditAgendaTask,
   onToggleDone,
   onDeleteTask,
 }: MonthViewProps) {
@@ -53,9 +73,21 @@ export function MonthView({
 
       <div className="grid gap-8 xl:grid-cols-[1.4fr_0.8fr]">
         <section className="space-y-8">
-          {renderMonthCalendar()}
+          <MonthCalendar
+            selectedMonth={selectedMonth}
+            calendarDays={calendarDays}
+            monthTasks={monthTasks}
+            selectedCalendarDate={selectedCalendarDate}
+            onSelectedCalendarDateChange={onSelectedCalendarDateChange}
+          />
 
-          {renderMonthAgenda()}
+          <MonthAgenda
+            selectedCalendarDate={selectedCalendarDate}
+            selectedCalendarTasks={selectedCalendarTasks}
+            onOpenDate={onOpenDate}
+            onEditTask={onEditAgendaTask}
+            onToggleDone={onToggleDone}
+          />
 
           <div className={theme.card}>
             <div className="mb-5 flex items-center justify-between">
@@ -83,7 +115,14 @@ export function MonthView({
           </div>
         </section>
 
-        <aside>{renderSelectedCalendarDayPanel()}</aside>
+        <aside>
+          <SelectedCalendarDayPanel
+            selectedCalendarDate={selectedCalendarDate}
+            selectedCalendarStats={selectedCalendarStats}
+            dailyNote={selectedCalendarDailyNote}
+            onOpenDate={onOpenDate}
+          />
+        </aside>
       </div>
     </>
   );
