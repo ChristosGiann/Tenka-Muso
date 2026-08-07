@@ -53,6 +53,7 @@ import { EmptyState, type EmptyStateOptions } from "./components/EmptyState";
 import { TaskList } from "./components/TaskList";
 import { TaskForm } from "./components/TaskForm";
 import { AuthPanel } from "./components/AuthPanel";
+import { DailyNoteCard } from "./components/DailyNoteCard";
 
 const defaultUserSettings = {
   defaultCategory: "Δουλειά",
@@ -1066,59 +1067,19 @@ function App() {
 
   function renderDailyNoteCard() {
     return (
-      <div className={theme.card}>
-        <div className="mb-5">
-          <p className={theme.eyebrow}>Daily Journal</p>
-
-          <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-            Σημείωση ημέρας
-          </h3>
-
-          <p className="mt-3 text-sm font-semibold text-neutral-500">
-            {selectedDate}
-          </p>
-        </div>
-
-        <textarea
-          value={dailyNoteDraft}
-          onChange={(event) => {
-            setDailyNoteDraft(event.target.value);
-            setDailyNoteSaved(false);
-          }}
-          disabled={dailyNotesLoading}
-          placeholder="Γράψε ελεύθερα πώς πήγε η ημέρα, τι έμαθες, τι θέλεις να θυμάσαι..."
-          className={`${theme.inputFull} min-h-40 resize-y leading-6`}
-        />
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={saveDailyNote}
-            disabled={dailyNoteSaving || dailyNotesLoading}
-            className={theme.primaryButton}
-          >
-            {dailyNoteSaving ? "Saving..." : "Save note"}
-          </button>
-
-          {dailyNotesLoading && (
-            <p className="text-sm font-semibold text-neutral-500">
-              Φόρτωση note...
-            </p>
-          )}
-
-          {dailyNoteSaved && (
-            <p className="text-sm font-semibold text-neutral-700">
-              Αποθηκεύτηκε.
-            </p>
-          )}
-
-          {dailyNoteError && (
-            <p className="text-sm font-semibold text-neutral-700">
-              {dailyNoteError}
-            </p>
-          )}
-        </div>
-      </div>
+      <DailyNoteCard
+        selectedDate={selectedDate}
+        dailyNoteDraft={dailyNoteDraft}
+        dailyNotesLoading={dailyNotesLoading}
+        dailyNoteSaving={dailyNoteSaving}
+        dailyNoteSaved={dailyNoteSaved}
+        dailyNoteError={dailyNoteError}
+        onDailyNoteDraftChange={(value) => {
+          setDailyNoteDraft(value);
+          setDailyNoteSaved(false);
+        }}
+        onSaveDailyNote={saveDailyNote}
+      />
     );
   }
 
