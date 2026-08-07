@@ -57,6 +57,10 @@ import { MobileNavigation } from "./components/MobileNavigation";
 import { TodayView } from "./views/TodayView";
 import { WeekView } from "./views/WeekView";
 import { MonthView } from "./views/MonthView";
+import { StatsView } from "./views/StatsView";
+import { BacklogView } from "./views/BacklogView";
+import { SearchView } from "./views/SearchView";
+import { ProfileView } from "./views/ProfileView";
 
 const defaultUserSettings = {
   defaultCategory: "Δουλειά",
@@ -1419,854 +1423,125 @@ function App() {
 
   function renderStatsView() {
     return (
-      <>
-        <header className="mb-8">
-          <p className={theme.eyebrow}>All-time Dashboard</p>
-
-          <h2 className={`${theme.title} ${theme.brushUnderline}`}>
-            Συνολικά στατιστικά
-          </h2>
-        </header>
-
-        {allTimeStats.totalTasks === 0 && (
-          <div className="mb-8">
-            {renderEmptyState({
-              eyebrow: "Stats",
-              title: "Δεν υπάρχουν ακόμα αρκετά δεδομένα.",
-              description:
-                "Τα στατιστικά θα αποκτήσουν νόημα μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο και κατηγορίες.",
-            })}
-          </div>
-        )}
-
-        <div className="grid gap-8 xl:grid-cols-[1fr_1fr]">
-          <CategoryStats stats={allTimeStats} />
-
-          <div className={theme.card}>
-            <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
-              Σύνοψη
-            </h3>
-
-            <div className="space-y-3 text-sm font-semibold text-neutral-700">
-              <p>Συνολικά tasks: {allTimeStats.totalTasks}</p>
-              <p>Ολοκληρωμένα tasks: {allTimeStats.doneTasks}</p>
-              <p>Συνολικός χρόνος: {formatMinutes(allTimeStats.totalMinutes)}</p>
-              <p>Backlog items: {backlogItems.length}</p>
-              <p>
-                Μέσος χρόνος ανά completed task:{" "}
-                {formatMinutes(allTimeStats.averageMinutesPerDoneTask)}
-              </p>
-              <p>
-                Πιο ενεργή κατηγορία:{" "}
-                {allTimeStats.mostActiveCategory
-                  ? `${allTimeStats.mostActiveCategory.category} (${formatMinutes(
-                    allTimeStats.mostActiveCategory.totalMinutes
-                  )})`
-                  : "Δεν υπάρχουν ακόμα ολοκληρωμένα tasks με χρόνο."}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className={`${theme.card} mt-8`}>
-          <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
-            Ανάλυση ανά κατηγορία
-          </h3>
-
-          <div className="space-y-3">
-            {allTimeStats.categoryStats.map((categoryStat) => (
-              <div
-                key={categoryStat.category}
-                className={`${theme.innerPanel} p-4`}
-              >
-                <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                  <h4 className="font-bold text-neutral-950">
-                    {categoryStat.category}
-                  </h4>
-
-                  <p className="text-sm font-semibold text-neutral-500">
-                    {categoryStat.completionRate}% completion
-                  </p>
-                </div>
-
-                <div className="grid gap-3 text-sm font-semibold text-neutral-700 md:grid-cols-3">
-                  <p>Tasks: {categoryStat.totalTasks}</p>
-                  <p>Done: {categoryStat.doneTasks}</p>
-                  <p>Χρόνος: {formatMinutes(categoryStat.totalMinutes)}</p>
-                </div>
-
-                <div className="mt-3 h-3 overflow-hidden rounded-full border border-neutral-300 bg-stone-200">
-                  <div
-                    className="h-full rounded-full bg-neutral-950"
-                    style={{
-                      width: `${categoryStat.completionRate}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </>
+      <StatsView
+        allTimeStats={allTimeStats}
+        backlogItemsCount={backlogItems.length}
+      />
     );
   }
 
   function renderSearchView() {
-    const hasActiveFilters =
-      Boolean(searchQuery.trim()) ||
-      searchCategoryFilter !== "all" ||
-      searchTypeFilter !== "all" ||
-      searchStatusFilter !== "all" ||
-      Boolean(searchDateFrom) ||
-      Boolean(searchDateTo);
-
-    function clearSearchFilters() {
-      setSearchQuery("");
-      setSearchCategoryFilter("all");
-      setSearchTypeFilter("all");
-      setSearchStatusFilter("all");
-      setSearchDateFrom("");
-      setSearchDateTo("");
-    }
-
     return (
-      <>
-        <header className="mb-8">
-          <p className={theme.eyebrow}>Search / Filters</p>
-
-          <h2 className={`${theme.title} ${theme.brushUnderline}`}>
-            Αναζήτηση
-          </h2>
-
-          <p className="mt-3 text-sm font-semibold text-neutral-500">
-            Βρες παλιά tasks, routines, backlog items και daily journal notes.
-          </p>
-        </header>
-
-        <div className="grid gap-8 xl:grid-cols-[0.9fr_1.4fr]">
-          <aside className={theme.card}>
-            <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
-              Φίλτρα
-            </h3>
-
-            <div className="space-y-4">
-              <label className="space-y-2">
-                <span className="block text-sm font-bold text-neutral-600">
-                  Search
-                </span>
-
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Ψάξε τίτλο, category, notes..."
-                  className={theme.inputFull}
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="block text-sm font-bold text-neutral-600">
-                  Category
-                </span>
-
-                <select
-                  value={searchCategoryFilter}
-                  onChange={(event) => setSearchCategoryFilter(event.target.value)}
-                  className={theme.inputFull}
-                >
-                  <option value="all">All categories</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="block text-sm font-bold text-neutral-600">
-                    Type
-                  </span>
-
-                  <select
-                    value={searchTypeFilter}
-                    onChange={(event) =>
-                      setSearchTypeFilter(event.target.value as TaskType | "all")
-                    }
-                    className={theme.inputFull}
-                  >
-                    <option value="all">All types</option>
-                    <option value="task">Task</option>
-                    <option value="routine">Routine</option>
-                    <option value="backlog">Backlog</option>
-                  </select>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="block text-sm font-bold text-neutral-600">
-                    Status
-                  </span>
-
-                  <select
-                    value={searchStatusFilter}
-                    onChange={(event) =>
-                      setSearchStatusFilter(
-                        event.target.value as "pending" | "done" | "all"
-                      )
-                    }
-                    className={theme.inputFull}
-                  >
-                    <option value="all">All statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="done">Done</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="block text-sm font-bold text-neutral-600">
-                    From
-                  </span>
-
-                  <input
-                    type="date"
-                    value={searchDateFrom}
-                    onChange={(event) => setSearchDateFrom(event.target.value)}
-                    className={theme.inputFull}
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="block text-sm font-bold text-neutral-600">
-                    To
-                  </span>
-
-                  <input
-                    type="date"
-                    value={searchDateTo}
-                    onChange={(event) => setSearchDateTo(event.target.value)}
-                    className={theme.inputFull}
-                  />
-                </label>
-              </div>
-
-              <button
-                type="button"
-                onClick={clearSearchFilters}
-                disabled={!hasActiveFilters}
-                className={theme.secondaryButton}
-              >
-                Clear filters
-              </button>
-
-              <p className="text-sm font-semibold text-neutral-500">
-                Τα daily journal notes εμφανίζονται μόνο όταν τα φίλτρα category/type/status είναι στο All.
-              </p>
-            </div>
-          </aside>
-
-          <section className={theme.card}>
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-                  Αποτελέσματα
-                </h3>
-
-                <p className="mt-3 text-sm font-semibold text-neutral-500">
-                  {searchResults.length} αποτελέσματα
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {searchResults.length === 0 &&
-                renderEmptyState({
-                  eyebrow: "Search",
-                  title: "Δεν βρέθηκαν αποτελέσματα.",
-                  description:
-                    "Δοκίμασε πιο γενική αναζήτηση ή καθάρισε κάποια φίλτρα. Τα daily journal notes εμφανίζονται μόνο όταν category/type/status είναι στο All.",
-                })}
-
-              {searchResults.map((result) => {
-                if (result.kind === "dailyNote") {
-                  return (
-                    <div key={result.id} className={`${theme.innerPanel} p-4`}>
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span className={theme.darkBadge}>Daily note</span>
-                        <span className={theme.badge}>{result.date}</span>
-                      </div>
-
-                      <p className="text-sm leading-6 text-neutral-600">
-                        {result.content}
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={() => openDateInTodayView(result.date)}
-                        className={`${theme.primaryButton} mt-4 text-sm`}
-                      >
-                        Άνοιγμα ημέρας
-                      </button>
-                    </div>
-                  );
-                }
-
-                const task = result.task;
-                const duration = getDurationMinutes(task.startTime, task.endTime);
-
-                return (
-                  <div
-                    key={result.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-neutral-300/80 bg-stone-50/75 p-4 transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] md:flex-row md:items-center md:justify-between"
-                  >
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={theme.badge}>{task.category}</span>
-                        <span className={theme.badge}>{task.type}</span>
-                        <span className={theme.badge}>{task.status}</span>
-
-                        {duration > 0 && (
-                          <span className={theme.darkBadge}>
-                            {formatMinutes(duration)}
-                          </span>
-                        )}
-                      </div>
-
-                      <h4 className="mt-2 text-lg font-bold text-neutral-950">
-                        {task.status === "done" ? "✓ " : ""}
-                        {task.title}
-                      </h4>
-
-                      <p className="text-sm font-semibold text-neutral-500">
-                        {task.startTime && task.endTime
-                          ? `${task.date} • ${task.startTime} - ${task.endTime}`
-                          : task.date}
-                      </p>
-
-                      {task.notes && (
-                        <p className="mt-2 text-sm text-neutral-600">
-                          {task.notes}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openDateInTodayView(task.date)}
-                        className={theme.smallButton}
-                      >
-                        Open day
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => startEditTaskFromSearch(task)}
-                        className={theme.smallButton}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleDone(task.id)}
-                        className={
-                          task.status === "done"
-                            ? theme.smallButton
-                            : "rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50 transition hover:bg-neutral-800"
-                        }
-                      >
-                        {task.status === "done" ? "Undo" : "Done"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => requestDeleteTask(task)}
-                        className={theme.dangerButton}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-      </>
+      <SearchView
+        categories={categories}
+        searchResults={searchResults}
+        searchQuery={searchQuery}
+        searchCategoryFilter={searchCategoryFilter}
+        searchTypeFilter={searchTypeFilter}
+        searchStatusFilter={searchStatusFilter}
+        searchDateFrom={searchDateFrom}
+        searchDateTo={searchDateTo}
+        onSearchQueryChange={setSearchQuery}
+        onSearchCategoryFilterChange={setSearchCategoryFilter}
+        onSearchTypeFilterChange={setSearchTypeFilter}
+        onSearchStatusFilterChange={setSearchStatusFilter}
+        onSearchDateFromChange={setSearchDateFrom}
+        onSearchDateToChange={setSearchDateTo}
+        onClearSearchFilters={() => {
+          setSearchQuery("");
+          setSearchCategoryFilter("all");
+          setSearchTypeFilter("all");
+          setSearchStatusFilter("all");
+          setSearchDateFrom("");
+          setSearchDateTo("");
+        }}
+        onOpenDate={openDateInTodayView}
+        onEditTask={startEditTaskFromSearch}
+        onToggleDone={toggleDone}
+        onDeleteTask={requestDeleteTask}
+      />
     );
   }
 
   function renderProfileView() {
-    const isAnonymousUser = firebaseUser?.isAnonymous ?? false;
-
-    const providerLabel = isAnonymousUser
-      ? "Anonymous"
-      : firebaseUser?.providerData?.[0]?.providerId ?? "Google / Firebase";
-
-    const userLabel = firebaseUser
-      ? firebaseUser.displayName ||
-      firebaseUser.email ||
-      `Anonymous ${firebaseUser.uid.slice(0, 8)}...`
-      : "Δεν υπάρχει Firebase user.";
-
     return (
-      <>
-        <header className="mb-8">
-          <p className={theme.eyebrow}>Account / Settings</p>
-
-          <h2 className={`${theme.title} ${theme.brushUnderline}`}>
-            Profile
-          </h2>
-
-          <p className="mt-3 text-sm font-semibold text-neutral-500">
-            Διαχείριση λογαριασμού και βασικών προτιμήσεων.
-          </p>
-        </header>
-
-        <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-          <section className="space-y-6">
-            <div className={theme.card}>
-              <p className={theme.eyebrow}>User</p>
-
-              <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mt-2`}>
-                Στοιχεία λογαριασμού
-              </h3>
-
-              <div className="mt-6 space-y-6 text-sm font-semibold text-neutral-700">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
-                    Display name
-                  </p>
-
-                  <div className="mt-4 flex flex-col gap-3 md:flex-row">
-                    <input
-                      value={profileNameDraft}
-                      onChange={(event) => {
-                        setProfileNameDraft(event.target.value);
-                        setProfileNameSaved(false);
-                      }}
-                      placeholder="Π.χ. Christos"
-                      className={`${theme.input} min-w-0 flex-1`}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={saveProfileName}
-                      disabled={profileNameSaving || authLoading || !firebaseUser}
-                      className={theme.primaryButton}
-                    >
-                      {profileNameSaving ? "Saving..." : "Save name"}
-                    </button>
-                  </div>
-
-                  {profileNameSaved && (
-                    <p className="mt-3 text-sm font-semibold text-neutral-700">
-                      Το όνομα αποθηκεύτηκε.
-                    </p>
-                  )}
-
-                  {profileNameError && (
-                    <p className="mt-3 text-sm font-semibold text-neutral-700">
-                      {profileNameError}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
-                    User
-                  </p>
-
-                  <p className="mt-3 text-base font-bold text-neutral-950">
-                    {authLoading ? "Φόρτωση..." : userLabel}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
-                    Email
-                  </p>
-
-                  <p className="mt-3 text-base font-bold text-neutral-950">
-                    {firebaseUser?.email ?? "Δεν υπάρχει email στο anonymous mode."}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
-                    Provider
-                  </p>
-
-                  <p className="mt-3 text-base font-bold text-neutral-950">
-                    {providerLabel}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                {!authLoading && firebaseUser && isAnonymousUser && (
-                  <button
-                    type="button"
-                    onClick={signInWithGoogle}
-                    disabled={authActionLoading}
-                    className={theme.primaryButton}
-                  >
-                    {authActionLoading ? "Opening Google..." : "Sign in with Google"}
-                  </button>
-                )}
-
-                {!authLoading && firebaseUser && !isAnonymousUser && (
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className={theme.secondaryButton}
-                  >
-                    Sign out
-                  </button>
-                )}
-              </div>
-
-              {authError && (
-                <p className="mt-4 rounded-xl border border-neutral-300 bg-stone-100 p-3 text-sm font-semibold text-neutral-800">
-                  {authError}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-6">
-            <div className={theme.card}>
-              <p className={theme.eyebrow}>Preferences</p>
-
-              <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mt-2`}>
-                Settings
-              </h3>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="block text-sm font-bold text-neutral-600">
-                    Default category
-                  </span>
-
-                  <select
-                    value={userSettings.defaultCategory}
-                    onChange={(event) => {
-                      setUserSettings((currentSettings) => ({
-                        ...currentSettings,
-                        defaultCategory: event.target.value,
-                      }));
-                      setSettingsSaved(false);
-                    }}
-                    className={theme.inputFull}
-                  >
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="block text-sm font-bold text-neutral-600">
-                    Default view
-                  </span>
-
-                  <select
-                    value={userSettings.defaultView}
-                    onChange={(event) => {
-                      setUserSettings((currentSettings) => ({
-                        ...currentSettings,
-                        defaultView: event.target.value as View,
-                      }));
-                      setSettingsSaved(false);
-                    }}
-                    className={theme.inputFull}
-                  >
-                    <option value="today">Today</option>
-                    <option value="week">Week</option>
-                    <option value="month">Month</option>
-                    <option value="stats">Stats</option>
-                    <option value="backlog">Backlog</option>
-                    <option value="search">Search</option>
-                    <option value="profile">Profile</option>
-                  </select>
-                </label>
-
-                <label className="space-y-2 md:col-span-2">
-                  <span className="block text-sm font-bold text-neutral-600">
-                    Theme
-                  </span>
-
-                  <select
-                    value={userSettings.themePreference}
-                    onChange={(event) => {
-                      setUserSettings((currentSettings) => ({
-                        ...currentSettings,
-                        themePreference: event.target.value,
-                      }));
-                      setSettingsSaved(false);
-                    }}
-                    className={theme.inputFull}
-                  >
-                    <option value="manga-grayscale">
-                      Manga grayscale / sumi-e
-                    </option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={saveUserSettings}
-                  disabled={settingsSaving || settingsLoading}
-                  className={theme.primaryButton}
-                >
-                  {settingsSaving ? "Saving..." : "Save settings"}
-                </button>
-
-                {settingsLoading && (
-                  <p className="text-sm font-semibold text-neutral-500">
-                    Φόρτωση settings...
-                  </p>
-                )}
-
-                {settingsSaved && (
-                  <p className="text-sm font-semibold text-neutral-700">
-                    Τα settings αποθηκεύτηκαν.
-                  </p>
-                )}
-
-                {settingsError && (
-                  <p className="text-sm font-semibold text-neutral-700">
-                    {settingsError}
-                  </p>
-                )}
-
-                <div className={`${theme.innerPanel} mt-6 p-4`}>
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-neutral-950">
-                        Backup export
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold text-neutral-500">
-                        Κατέβασε tasks, daily notes, custom categories και settings σε JSON.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={exportUserData}
-                      disabled={
-                        !firebaseUser ||
-                        tasksLoading ||
-                        dailyNotesLoading ||
-                        settingsLoading
-                      }
-                      className={theme.secondaryButton}
-                    >
-                      Export JSON
-                    </button>
-                  </div>
-
-                  <p className="mt-3 text-xs font-semibold text-neutral-500">
-                    Το export είναι μόνο για backup. Δεν κάνει import ή αλλαγή στα δεδομένα σου.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </>
+      <ProfileView
+        firebaseUser={firebaseUser}
+        authLoading={authLoading}
+        authActionLoading={authActionLoading}
+        authError={authError}
+        categories={categories}
+        profileNameDraft={profileNameDraft}
+        profileNameSaving={profileNameSaving}
+        profileNameSaved={profileNameSaved}
+        profileNameError={profileNameError}
+        userSettings={userSettings}
+        settingsLoading={settingsLoading}
+        settingsSaving={settingsSaving}
+        settingsSaved={settingsSaved}
+        settingsError={settingsError}
+        tasksLoading={tasksLoading}
+        dailyNotesLoading={dailyNotesLoading}
+        onProfileNameDraftChange={(value) => {
+          setProfileNameDraft(value);
+          setProfileNameSaved(false);
+        }}
+        onSaveProfileName={saveProfileName}
+        onDefaultCategoryChange={(value) => {
+          setUserSettings((currentSettings) => ({
+            ...currentSettings,
+            defaultCategory: value,
+          }));
+          setSettingsSaved(false);
+        }}
+        onDefaultViewChange={(value) => {
+          setUserSettings((currentSettings) => ({
+            ...currentSettings,
+            defaultView: value,
+          }));
+          setSettingsSaved(false);
+        }}
+        onThemePreferenceChange={(value) => {
+          setUserSettings((currentSettings) => ({
+            ...currentSettings,
+            themePreference: value,
+          }));
+          setSettingsSaved(false);
+        }}
+        onSaveUserSettings={saveUserSettings}
+        onExportUserData={exportUserData}
+        onSignInWithGoogle={signInWithGoogle}
+        onSignOut={handleSignOut}
+      />
     );
   }
 
   function renderBacklogView() {
     return (
-      <>
-        <header className="mb-8">
-          <p className={theme.eyebrow}>Ideas / Later / Watchlist</p>
-
-          <h2 className={`${theme.title} ${theme.brushUnderline}`}>
-            Backlog
-          </h2>
-        </header>
-
-        <div className="grid gap-8 xl:grid-cols-[1fr_1fr]">
-          {renderForm()}
-
-          <div className={theme.card}>
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-                  Όλα τα backlog items
-                </h3>
-
-                <p className="mt-3 text-sm font-semibold text-neutral-500">
-                  {filteredBacklogItems.length}/{backlogItems.length} items · Διάλεξε ημερομηνία σε κάθε item
-                </p>
-              </div>
-
-
-            </div>
-
-            <div className="mb-5 grid gap-3 md:grid-cols-4">
-              <select
-                value={backlogCategoryFilter}
-                onChange={(event) => setBacklogCategoryFilter(event.target.value)}
-                className={theme.inputFull}
-              >
-                <option value="all">All categories</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={backlogPriorityFilter}
-                onChange={(event) =>
-                  setBacklogPriorityFilter(
-                    event.target.value as BacklogPriority | "all"
-                  )
-                }
-                className={theme.inputFull}
-              >
-                <option value="all">All priorities</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-
-              <select
-                value={backlogStatusFilter}
-                onChange={(event) =>
-                  setBacklogStatusFilter(
-                    event.target.value as BacklogStatus | "all"
-                  )
-                }
-                className={theme.inputFull}
-              >
-                <option value="all">All statuses</option>
-                <option value="idea">Idea</option>
-                <option value="someday">Someday</option>
-                <option value="planned">Planned</option>
-              </select>
-
-              <select
-                value={backlogSort}
-                onChange={(event) =>
-                  setBacklogSort(
-                    event.target.value as "newest" | "priority" | "category"
-                  )
-                }
-                className={theme.inputFull}
-              >
-                <option value="newest">Newest first</option>
-                <option value="priority">Priority first</option>
-                <option value="category">Category A-Z</option>
-              </select>
-            </div>
-
-            <div className="space-y-3">
-              {filteredBacklogItems.length === 0 &&
-                renderEmptyState({
-                  eyebrow: backlogItems.length === 0 ? "Backlog" : "Filters",
-                  title:
-                    backlogItems.length === 0
-                      ? "Το backlog είναι άδειο."
-                      : "Δεν υπάρχουν backlog items με αυτά τα φίλτρα.",
-                  description:
-                    backlogItems.length === 0
-                      ? "Χρησιμοποίησε τη φόρμα αριστερά και διάλεξε type Backlog για να αποθηκεύσεις ιδέες για αργότερα."
-                      : "Δοκίμασε να αλλάξεις category, priority, status ή sort ώστε να εμφανιστούν περισσότερα items.",
-                })}
-
-              {filteredBacklogItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`${theme.innerPanel} flex flex-col gap-3 p-4 transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] md:flex-row md:items-center md:justify-between`}
-                >
-                  <div>
-                    <p className="font-bold text-neutral-950">{item.title}</p>
-
-                    <p className="text-sm font-semibold text-neutral-500">
-                      {item.category}
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className={theme.badge}>
-                        Priority: {item.priority ?? "medium"}
-                      </span>
-
-                      <span className={theme.badge}>
-                        Status: {item.backlogStatus ?? "idea"}
-                      </span>
-                    </div>
-
-                    {item.notes && (
-                      <p className="mt-2 text-sm text-neutral-600">
-                        {item.notes}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-3 md:items-end">
-                    <label className="w-full space-y-2 md:w-44">
-                      <span className="block text-xs font-bold uppercase tracking-[0.14em] text-neutral-400">
-                        Schedule date
-                      </span>
-
-                      <input
-                        type="date"
-                        value={getBacklogScheduleDate(item.id)}
-                        onChange={(event) =>
-                          setBacklogScheduleDates((currentDates) => ({
-                            ...currentDates,
-                            [item.id]: event.target.value,
-                          }))
-                        }
-                        className={theme.inputFull}
-                      />
-                    </label>
-
-                    <div className="flex flex-wrap gap-2 md:justify-end">
-                      <button
-                        type="button"
-                        onClick={() => startEditTask(item)}
-                        className={theme.smallButton}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => scheduleBacklogItem(item)}
-                        className="rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50 transition hover:bg-neutral-800"
-                      >
-                        Schedule
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => requestDeleteTask(item)}
-                        className={theme.dangerButton}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </>
+      <BacklogView
+        categories={categories}
+        filteredBacklogItems={filteredBacklogItems}
+        backlogItemsCount={backlogItems.length}
+        backlogCategoryFilter={backlogCategoryFilter}
+        backlogPriorityFilter={backlogPriorityFilter}
+        backlogStatusFilter={backlogStatusFilter}
+        backlogSort={backlogSort}
+        renderForm={renderForm}
+        getBacklogScheduleDate={getBacklogScheduleDate}
+        onBacklogCategoryFilterChange={setBacklogCategoryFilter}
+        onBacklogPriorityFilterChange={setBacklogPriorityFilter}
+        onBacklogStatusFilterChange={setBacklogStatusFilter}
+        onBacklogSortChange={setBacklogSort}
+        onBacklogScheduleDateChange={(taskId, date) => {
+          setBacklogScheduleDates((currentDates) => ({
+            ...currentDates,
+            [taskId]: date,
+          }));
+        }}
+        onEditTask={startEditTask}
+        onScheduleBacklogItem={scheduleBacklogItem}
+        onDeleteTask={requestDeleteTask}
+      />
     );
   }
 
