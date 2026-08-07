@@ -49,6 +49,8 @@ import "./App.css";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { StatCards } from "./components/StatCards";
 import { CategoryStats } from "./components/CategoryStats";
+import { EmptyState, type EmptyStateOptions } from "./components/EmptyState";
+import { TaskList } from "./components/TaskList";
 
 const defaultUserSettings = {
   defaultCategory: "Δουλειά",
@@ -62,14 +64,6 @@ function isValidView(value: unknown): value is View {
     ["today", "week", "month", "stats", "backlog", "search", "profile"].includes(value)
   );
 }
-
-type EmptyStateOptions = {
-  eyebrow?: string;
-  title: string;
-  description: string;
-  actionLabel?: string;
-  onAction?: () => void;
-};
 
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
@@ -1027,124 +1021,8 @@ function App() {
     }, 100);
   }
 
-  function renderEmptyState({
-    eyebrow = "Empty state",
-    title,
-    description,
-    actionLabel,
-    onAction,
-  }: EmptyStateOptions) {
-    return (
-      <div className={`${theme.innerPanel} p-5`}>
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">
-          {eyebrow}
-        </p>
-
-        <h4 className="mt-2 text-lg font-black text-neutral-950">
-          {title}
-        </h4>
-
-        <p className="mt-2 text-sm font-semibold leading-6 text-neutral-500">
-          {description}
-        </p>
-
-        {actionLabel && onAction && (
-          <button
-            type="button"
-            onClick={onAction}
-            className={`${theme.secondaryButton} mt-4`}
-          >
-            {actionLabel}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  function renderTaskList(
-    taskList: Task[],
-    emptyState: string | EmptyStateOptions
-  ) {
-    const resolvedEmptyState =
-      typeof emptyState === "string"
-        ? {
-          title: emptyState,
-          description:
-            "Χρησιμοποίησε τη φόρμα νέου task για να ξεκινήσεις να χτίζεις την ημέρα σου.",
-        }
-        : emptyState;
-
-    return (
-      <div className="space-y-3">
-        {taskList.length === 0 && renderEmptyState(resolvedEmptyState)}
-
-        {taskList.map((task) => {
-          const duration = getDurationMinutes(task.startTime, task.endTime);
-
-          return (
-            <div
-              key={task.id}
-              className="flex flex-col gap-3 rounded-2xl border border-neutral-300/80 bg-stone-50/75 p-4 transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] md:flex-row md:items-center md:justify-between"
-            >
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={theme.badge}>{task.category}</span>
-                  <span className={theme.badge}>{task.type}</span>
-
-                  {duration > 0 && (
-                    <span className={theme.darkBadge}>
-                      {formatMinutes(duration)}
-                    </span>
-                  )}
-                </div>
-
-                <h4 className="mt-2 text-lg font-bold text-neutral-950">
-                  {task.status === "done" ? "✓ " : ""}
-                  {task.title}
-                </h4>
-
-                <p className="text-sm font-semibold text-neutral-500">
-                  {task.startTime && task.endTime
-                    ? `${task.date} • ${task.startTime} - ${task.endTime}`
-                    : task.date}
-                </p>
-
-                {task.notes && (
-                  <p className="mt-2 text-sm text-neutral-600">{task.notes}</p>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => startEditTask(task)}
-                  className={theme.smallButton}
-                >
-                  Edit
-                </button>
-
-                <button
-                  onClick={() => toggleDone(task.id)}
-                  className={
-                    task.status === "done"
-                      ? theme.smallButton
-                      : "rounded-xl bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50 transition hover:bg-neutral-800"
-                  }
-                >
-                  {task.status === "done" ? "Undo" : "Done"}
-                </button>
-
-                <button
-                  onClick={() => requestDeleteTask(task)}
-                  className={theme.dangerButton}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
+  function renderEmptyState(options: EmptyStateOptions) {
+    return <EmptyState {...options} />;
   }
 
   function renderForm() {
@@ -1535,12 +1413,18 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(dayTasks, {
-                eyebrow: "Today",
-                title: "Δεν έχεις tasks για αυτή την ημέρα.",
-                description:
-                  "Πρόσθεσε 1-3 βασικά tasks ή γράψε ένα daily note για να ξεκινήσει η ημέρα σου καθαρά.",
-              })}
+              <TaskList
+                tasks={dayTasks}
+                emptyState={{
+                  eyebrow: "Today",
+                  title: "Δεν έχεις tasks για αυτή την ημέρα.",
+                  description:
+                    "Πρόσθεσε 1-3 βασικά tasks ή γράψε ένα daily note για να ξεκινήσει η ημέρα σου καθαρά.",
+                }}
+                onEditTask={startEditTask}
+                onToggleDone={toggleDone}
+                onDeleteTask={requestDeleteTask}
+              />
             </div>
           </section>
 
@@ -1940,12 +1824,18 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(weekTasks, {
-                eyebrow: "Week",
-                title: "Δεν έχεις tasks για αυτή την εβδομάδα.",
-                description:
-                  "Πρόσθεσε tasks σε συγκεκριμένες ημέρες για να αρχίσει να φαίνεται η εβδομαδιαία εικόνα σου.",
-              })}
+              <TaskList
+                tasks={weekTasks}
+                emptyState={{
+                  eyebrow: "Week",
+                  title: "Δεν έχεις tasks για αυτή την εβδομάδα.",
+                  description:
+                    "Άνοιξε μια ημέρα της εβδομάδας ή πρόσθεσε tasks για να αρχίσει να γεμίζει το weekly view.",
+                }}
+                onEditTask={startEditTask}
+                onToggleDone={toggleDone}
+                onDeleteTask={requestDeleteTask}
+              />
             </div>
           </section>
 
@@ -2001,12 +1891,18 @@ function App() {
                 </p>
               </div>
 
-              {renderTaskList(monthTasks, {
-                eyebrow: "Month",
-                title: "Δεν έχεις tasks για αυτόν τον μήνα.",
-                description:
-                  "Μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο, το month view θα γίνει χρήσιμο για ανασκόπηση.",
-              })}
+              <TaskList
+                tasks={monthTasks}
+                emptyState={{
+                  eyebrow: "Month",
+                  title: "Δεν έχεις tasks για αυτόν τον μήνα.",
+                  description:
+                    "Μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο, το month view θα γίνει χρήσιμο για ανασκόπηση.",
+                }}
+                onEditTask={startEditTask}
+                onToggleDone={toggleDone}
+                onDeleteTask={requestDeleteTask}
+              />
             </div>
           </section>
 
