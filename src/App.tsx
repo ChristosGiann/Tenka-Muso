@@ -47,16 +47,16 @@ import { theme } from "./styles/theme";
 import "./App.css";
 
 import { ConfirmModal } from "./components/ConfirmModal";
-import { StatCards } from "./components/StatCards";
 import { CategoryStats } from "./components/CategoryStats";
 import { EmptyState, type EmptyStateOptions } from "./components/EmptyState";
-import { TaskList } from "./components/TaskList";
 import { TaskForm } from "./components/TaskForm";
 import { AuthPanel } from "./components/AuthPanel";
 import { DailyNoteCard } from "./components/DailyNoteCard";
 import { Sidebar } from "./components/Sidebar";
 import { MobileNavigation } from "./components/MobileNavigation";
 import { TodayView } from "./views/TodayView";
+import { WeekView } from "./views/WeekView";
+import { MonthView } from "./views/MonthView";
 
 const defaultUserSettings = {
   defaultCategory: "Δουλειά",
@@ -1325,226 +1325,42 @@ function App() {
     const weekEnd = weekDates[6];
 
     return (
-      <>
-        <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className={theme.eyebrow}>Weekly Overview</p>
-
-            <h2 className={`${theme.title} ${theme.brushUnderline}`}>
-              Εβδομαδιαία εικόνα
-            </h2>
-
-            <p className="mt-3 text-sm font-semibold text-neutral-500">
-              {weekStart} έως {weekEnd}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedWeekDate(addDays(weekStart, -7))}
-              className={theme.secondaryButton}
-            >
-              Προηγούμενη
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedWeekDate(getToday())}
-              className={theme.primaryButton}
-            >
-              Τρέχουσα
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedWeekDate(addDays(weekStart, 7))}
-              className={theme.secondaryButton}
-            >
-              Επόμενη
-            </button>
-
-            <input
-              type="date"
-              value={selectedWeekDate}
-              onChange={(event) => setSelectedWeekDate(event.target.value)}
-              className={theme.input}
-            />
-          </div>
-        </header>
-
-        <StatCards stats={weekStats} />
-
-        <div className="grid gap-8 xl:grid-cols-[1.4fr_0.8fr]">
-          <section className="space-y-8">
-            <div className={theme.card}>
-              <div className="mb-5">
-                <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-                  Ημέρες εβδομάδας
-                </h3>
-
-                <p className="mt-3 text-sm font-semibold text-neutral-500">
-                  Πάτα σε μια ημέρα για να ανοίξει στο Today view.
-                </p>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-                {weekDaySummaries.map((daySummary, index) => {
-                  const isToday = daySummary.date === getToday();
-
-                  return (
-                    <button
-                      key={daySummary.date}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDate(daySummary.date);
-                        setSelectedMonth(getMonthFromDate(daySummary.date));
-                        setSelectedCalendarDate(daySummary.date);
-                        setForm((currentForm) => ({
-                          ...currentForm,
-                          date: daySummary.date,
-                        }));
-                        setActiveView("today");
-                      }}
-                      className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] ${isToday
-                        ? "border-neutral-950 bg-neutral-950 text-stone-50"
-                        : "border-neutral-300 bg-stone-50/75 text-neutral-950"
-                        }`}
-                    >
-                      <div className="mb-3 flex items-center justify-between">
-                        <p
-                          className={`text-sm font-bold ${isToday ? "text-stone-300" : "text-neutral-500"
-                            }`}
-                        >
-                          {weekDays[index]}
-                        </p>
-
-                        {isToday && (
-                          <span className="rounded-full bg-stone-50 px-2 py-0.5 text-[10px] font-bold text-neutral-950">
-                            Today
-                          </span>
-                        )}
-                      </div>
-
-                      <p
-                        className={`text-sm font-semibold ${isToday ? "text-stone-300" : "text-neutral-500"
-                          }`}
-                      >
-                        {daySummary.date}
-                      </p>
-
-                      <p className="mt-3 text-2xl font-extrabold">
-                        {formatMinutes(daySummary.doneMinutes)}
-                      </p>
-
-                      <p
-                        className={`mt-2 text-sm font-semibold ${isToday ? "text-stone-300" : "text-neutral-500"
-                          }`}
-                      >
-                        {daySummary.doneTasks}/{daySummary.totalTasks} done
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className={theme.card}>
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-                  Tasks εβδομάδας
-                </h3>
-
-                <p className="text-sm font-semibold text-neutral-500">
-                  {weekStart} - {weekEnd}
-                </p>
-              </div>
-
-              <TaskList
-                tasks={weekTasks}
-                emptyState={{
-                  eyebrow: "Week",
-                  title: "Δεν έχεις tasks για αυτή την εβδομάδα.",
-                  description:
-                    "Άνοιξε μια ημέρα της εβδομάδας ή πρόσθεσε tasks για να αρχίσει να γεμίζει το weekly view.",
-                }}
-                onEditTask={startEditTask}
-                onToggleDone={toggleDone}
-                onDeleteTask={requestDeleteTask}
-              />
-            </div>
-          </section>
-
-          <aside>
-            <CategoryStats stats={weekStats} />
-          </aside>
-        </div>
-      </>
+      <WeekView
+        selectedWeekDate={selectedWeekDate}
+        weekStart={weekStart}
+        weekEnd={weekEnd}
+        weekStats={weekStats}
+        weekDaySummaries={weekDaySummaries}
+        weekTasks={weekTasks}
+        onPreviousWeek={() => setSelectedWeekDate(addDays(weekStart, -7))}
+        onCurrentWeek={() => setSelectedWeekDate(getToday())}
+        onNextWeek={() => setSelectedWeekDate(addDays(weekStart, 7))}
+        onSelectedWeekDateChange={setSelectedWeekDate}
+        onOpenDay={openDateInTodayView}
+        onEditTask={startEditTask}
+        onToggleDone={toggleDone}
+        onDeleteTask={requestDeleteTask}
+      />
     );
   }
 
   function renderMonthView() {
     return (
-      <>
-        <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className={theme.eyebrow}>Monthly Overview</p>
-
-            <h2 className={`${theme.title} ${theme.brushUnderline}`}>
-              Μηνιαία εικόνα
-            </h2>
-          </div>
-
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(event) => {
-              const newMonth = event.target.value;
-
-              setSelectedMonth(newMonth);
-              setSelectedCalendarDate(`${newMonth}-01`);
-            }}
-            className={theme.input}
-          />
-        </header>
-
-        <StatCards stats={monthStats} />
-
-        <div className="grid gap-8 xl:grid-cols-[1.4fr_0.8fr]">
-          <section className="space-y-8">
-            {renderMonthCalendar()}
-
-            {renderMonthAgenda()}
-
-            <div className={theme.card}>
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className={`${theme.sectionTitle} ${theme.brushUnderline}`}>
-                  Tasks μήνα
-                </h3>
-
-                <p className="text-sm font-semibold text-neutral-500">
-                  {selectedMonth}
-                </p>
-              </div>
-
-              <TaskList
-                tasks={monthTasks}
-                emptyState={{
-                  eyebrow: "Month",
-                  title: "Δεν έχεις tasks για αυτόν τον μήνα.",
-                  description:
-                    "Μόλις αρχίσεις να ολοκληρώνεις tasks με χρόνο, το month view θα γίνει χρήσιμο για ανασκόπηση.",
-                }}
-                onEditTask={startEditTask}
-                onToggleDone={toggleDone}
-                onDeleteTask={requestDeleteTask}
-              />
-            </div>
-          </section>
-
-          <aside>{renderSelectedCalendarDayPanel()}</aside>
-        </div>
-      </>
+      <MonthView
+        selectedMonth={selectedMonth}
+        monthStats={monthStats}
+        monthTasks={monthTasks}
+        renderMonthCalendar={renderMonthCalendar}
+        renderMonthAgenda={renderMonthAgenda}
+        renderSelectedCalendarDayPanel={renderSelectedCalendarDayPanel}
+        onSelectedMonthChange={(newMonth) => {
+          setSelectedMonth(newMonth);
+          setSelectedCalendarDate(`${newMonth}-01`);
+        }}
+        onEditTask={startEditTask}
+        onToggleDone={toggleDone}
+        onDeleteTask={requestDeleteTask}
+      />
     );
   }
 
