@@ -42,6 +42,12 @@ import { DailyNoteCard } from "./components/DailyNoteCard";
 import { Sidebar } from "./components/Sidebar";
 import { MobileNavigation } from "./components/MobileNavigation";
 
+import {
+  getTasksForDate,
+  getTasksForDates,
+  getTasksForMonth,
+} from "./utils/routines";
+
 const TodayView = lazy(() =>
   import("./views/TodayView").then((module) => ({
     default: module.TodayView,
@@ -205,15 +211,11 @@ function App() {
   );
 
   const dayTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => task.date === selectedDate && task.type !== "backlog"
-    );
+    return getTasksForDate(tasks, selectedDate);
   }, [tasks, selectedDate]);
 
   const monthTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => task.date.startsWith(selectedMonth) && task.type !== "backlog"
-    );
+    return getTasksForMonth(tasks, selectedMonth);
   }, [tasks, selectedMonth]);
 
   const weekDates = useMemo(() => {
@@ -221,16 +223,12 @@ function App() {
   }, [selectedWeekDate]);
 
   const weekTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => weekDates.includes(task.date) && task.type !== "backlog"
-    );
+    return getTasksForDates(tasks, weekDates);
   }, [tasks, weekDates]);
 
   const weekDaySummaries = useMemo(() => {
     return weekDates.map((date) => {
-      const tasksForDay = tasks.filter(
-        (task) => task.date === date && task.type !== "backlog"
-      );
+      const tasksForDay = getTasksForDate(tasks, date);
 
       const doneTasksForDay = tasksForDay.filter(
         (task) => task.status === "done"
@@ -412,9 +410,7 @@ function App() {
   }, [taskSearchResults, dailyNoteSearchResults]);
 
   const selectedCalendarTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => task.date === selectedCalendarDate && task.type !== "backlog"
-    );
+    return getTasksForDate(tasks, selectedCalendarDate);
   }, [tasks, selectedCalendarDate]);
 
   const selectedCalendarStats = buildStats(selectedCalendarTasks, categories);
@@ -573,7 +569,7 @@ function App() {
       title: task.title,
       type: task.type,
       category: task.category,
-      date: task.date,
+      date: task.routineStartDate ?? task.date,
       startTime: task.startTime,
       endTime: task.endTime,
       notes: task.notes,
