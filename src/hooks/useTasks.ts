@@ -4,6 +4,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   onSnapshot,
   orderBy,
@@ -13,8 +14,21 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../lib/firebase";
-import type { BacklogPriority, BacklogStatus, Task, TaskType } from "../types";
+import type {
+  BacklogPriority,
+  BacklogStatus,
+  RoutineRecurrence,
+  Task,
+  TaskStatus,
+  TaskType,
+  WeekdayNumber,
+} from "../types";
 import { getToday } from "../utils/date";
+
+export const defaultRoutineRecurrence: RoutineRecurrence = {
+  type: "weekly",
+  weekdays: [1, 2, 3, 4, 5, 6, 7],
+};
 
 export type TaskFormState = {
   title: string;
@@ -26,6 +40,7 @@ export type TaskFormState = {
   notes: string;
   priority: BacklogPriority;
   backlogStatus: BacklogStatus;
+  recurrence: RoutineRecurrence;
 };
 
 export function createEmptyTaskForm(
@@ -42,6 +57,7 @@ export function createEmptyTaskForm(
     notes: "",
     priority: "medium",
     backlogStatus: "idea",
+    recurrence: defaultRoutineRecurrence,
   };
 }
 
@@ -49,6 +65,77 @@ type SaveTaskInput = {
   editingTaskId: string | null;
   form: TaskFormState;
 };
+
+function isWeekdayNumber(value: unknown): value is WeekdayNumber {
+  return (
+    value === 1 ||
+    value === 2 ||
+    value === 3 ||
+    value === 4 ||
+    value === 5 ||
+    value === 6 ||
+    value === 7
+  );
+}
+
+function getRoutineRecurrence(value: unknown): RoutineRecurrence | undefined {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("type" in value) ||
+    !("weekdays" in value)
+  ) {
+    return undefined;
+  }
+
+  const recurrence = value as {
+    type?: unknown;
+    weekdays?: unknown;
+  };
+
+  if (recurrence.type !== "weekly" || !Array.isArray(recurrence.weekdays)) {
+    return undefined;
+  }
+
+  const weekdays = recurrence.weekdays.filter(isWeekdayNumber);
+
+  if (weekdays.length === 0) {
+    return undefined;
+  }
+
+  return {
+    type: "weekly",
+    weekdays,
+  };
+}
+
+function isTaskStatus(value: unknown): value is TaskStatus {
+  return value === "pending" || value === "done";
+}
+
+function getTaskStatusRecord(
+  value: unknown
+): Record<string, TaskStatus> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(([, recordValue]) => isTaskStatus(recordValue))
+  ) as Record<string, TaskStatus>;
+}
+
+function getBooleanRecord(value: unknown): Record<string, boolean> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      ([, recordValue]) => typeof recordValue === "boolean"
+    )
+  ) as Record<string, boolean>;
+}
 
 export function useTasks(firebaseUser: User | null) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -84,6 +171,9 @@ export function useTasks(firebaseUser: User | null) {
             notes: data.notes ?? "",
             priority: data.priority ?? "medium",
             backlogStatus: data.backlogStatus ?? "idea",
+            recurrence: getRoutineRecurrence(data.recurrence),
+            routineCompletions: getTaskStatusRecord(data.routineCompletions),
+            routineSkips: getBooleanRecord(data.routineSkips),
           };
         });
 
@@ -104,9 +194,10 @@ export function useTasks(firebaseUser: User | null) {
     if (!form.title.trim()) return;
 
     if (editingTaskId) {
+      const currentTask = tasks.find((task) => task.id === editingTaskId);
       const taskRef = doc(db, "users", firebaseUser.uid, "tasks", editingTaskId);
 
-      await updateDoc(taskRef, {
+      const taskPayload = {
         title: form.title.trim(),
         type: form.type,
         category: form.category,
@@ -117,27 +208,53 @@ export function useTasks(firebaseUser: User | null) {
         priority: form.priority,
         backlogStatus: form.backlogStatus,
         updatedAt: serverTimestamp(),
-      });
+        ...(form.type === "routine"
+          ? {
+              recurrence: form.recurrence,
+              ...(currentTask?.type === "routine"
+                ? {}
+                : {
+                    routineCompletions: {},
+                    routineSkips: {},
+                  }),
+            }
+          : {
+              recurrence: deleteField(),
+              routineCompletions: deleteField(),
+              routineSkips: deleteField(),
+            }),
+      };
+
+      await updateDoc(taskRef, taskPayload);
 
       return;
     }
 
     const tasksRef = collection(db, "users", firebaseUser.uid, "tasks");
 
-    await addDoc(tasksRef, {
+    const taskPayload = {
       title: form.title.trim(),
       type: form.type,
       category: form.category,
       date: form.date,
       startTime: form.startTime,
       endTime: form.endTime,
-      status: "pending",
+      status: "pending" as TaskStatus,
       notes: form.notes.trim(),
       priority: form.priority,
       backlogStatus: form.backlogStatus,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+      ...(form.type === "routine"
+        ? {
+            recurrence: form.recurrence,
+            routineCompletions: {},
+            routineSkips: {},
+          }
+        : {}),
+    };
+
+    await addDoc(tasksRef, taskPayload);
   }
 
   async function toggleDone(taskId: string) {
@@ -172,6 +289,9 @@ export function useTasks(firebaseUser: User | null) {
       date: scheduleDate,
       status: "pending",
       backlogStatus: "planned",
+      recurrence: deleteField(),
+      routineCompletions: deleteField(),
+      routineSkips: deleteField(),
       updatedAt: serverTimestamp(),
     });
   }

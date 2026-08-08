@@ -4,7 +4,9 @@ import type {
   BacklogPriority,
   BacklogStatus,
   CustomCategory,
+  RoutineRecurrence,
   TaskType,
+  WeekdayNumber,
 } from "../types";
 import { theme } from "../styles/theme";
 
@@ -18,6 +20,7 @@ export type TaskFormValues = {
   notes: string;
   priority: BacklogPriority;
   backlogStatus: BacklogStatus;
+  recurrence: RoutineRecurrence;
 };
 
 type TaskFormProps = {
@@ -38,6 +41,16 @@ type TaskFormProps = {
   onCancelEdit: () => void;
 };
 
+const weekdayOptions: { value: WeekdayNumber; label: string }[] = [
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 7, label: "Sun" },
+];
+
 export function TaskForm({
   form,
   setForm,
@@ -55,6 +68,27 @@ export function TaskForm({
   onSaveTask,
   onCancelEdit,
 }: TaskFormProps) {
+  function toggleRoutineWeekday(weekday: WeekdayNumber) {
+    const weekdays = form.recurrence.weekdays;
+    const weekdayIsSelected = weekdays.includes(weekday);
+
+    if (weekdayIsSelected && weekdays.length === 1) {
+      return;
+    }
+
+    const nextWeekdays = weekdayIsSelected
+      ? weekdays.filter((currentWeekday) => currentWeekday !== weekday)
+      : [...weekdays, weekday].sort((first, second) => first - second);
+
+    setForm({
+      ...form,
+      recurrence: {
+        type: "weekly",
+        weekdays: nextWeekdays,
+      },
+    });
+  }
+
   return (
     <div ref={taskFormRef} className={theme.card}>
       <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
@@ -167,6 +201,43 @@ export function TaskForm({
           }
           className={theme.input}
         />
+
+        {form.type === "routine" && (
+          <div className={`${theme.innerPanel} space-y-3 p-4 md:col-span-2`}>
+            <div>
+              <p className="text-sm font-bold text-neutral-700">
+                Repeat on weekdays
+              </p>
+              <p className="text-xs font-semibold text-neutral-500">
+                Για routine, το date λειτουργεί ως start date. Το routine θα
+                εμφανίζεται μόνο στις επιλεγμένες ημέρες.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {weekdayOptions.map((weekday) => {
+                const selected = form.recurrence.weekdays.includes(
+                  weekday.value
+                );
+
+                return (
+                  <button
+                    key={weekday.value}
+                    type="button"
+                    onClick={() => toggleRoutineWeekday(weekday.value)}
+                    className={
+                      selected
+                        ? "rounded-full bg-neutral-950 px-4 py-2 text-sm font-bold text-stone-50"
+                        : "rounded-full border border-neutral-300 bg-stone-100 px-4 py-2 text-sm font-bold text-neutral-600"
+                    }
+                  >
+                    {weekday.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {form.type === "backlog" && (
           <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
