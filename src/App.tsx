@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { useAuthUser } from "./hooks/useAuthUser";
 import {
   createEmptyTaskForm,
@@ -40,13 +40,56 @@ import { AuthPanel } from "./components/AuthPanel";
 import { DailyNoteCard } from "./components/DailyNoteCard";
 import { Sidebar } from "./components/Sidebar";
 import { MobileNavigation } from "./components/MobileNavigation";
-import { TodayView } from "./views/TodayView";
-import { WeekView } from "./views/WeekView";
-import { MonthView } from "./views/MonthView";
-import { StatsView } from "./views/StatsView";
-import { BacklogView } from "./views/BacklogView";
-import { SearchView } from "./views/SearchView";
-import { ProfileView } from "./views/ProfileView";
+
+const TodayView = lazy(() =>
+  import("./views/TodayView").then((module) => ({
+    default: module.TodayView,
+  }))
+);
+
+const WeekView = lazy(() =>
+  import("./views/WeekView").then((module) => ({
+    default: module.WeekView,
+  }))
+);
+
+const MonthView = lazy(() =>
+  import("./views/MonthView").then((module) => ({
+    default: module.MonthView,
+  }))
+);
+
+const StatsView = lazy(() =>
+  import("./views/StatsView").then((module) => ({
+    default: module.StatsView,
+  }))
+);
+
+const BacklogView = lazy(() =>
+  import("./views/BacklogView").then((module) => ({
+    default: module.BacklogView,
+  }))
+);
+
+const SearchView = lazy(() =>
+  import("./views/SearchView").then((module) => ({
+    default: module.SearchView,
+  }))
+);
+
+const ProfileView = lazy(() =>
+  import("./views/ProfileView").then((module) => ({
+    default: module.ProfileView,
+  }))
+);
+
+function ViewLoadingFallback() {
+  return (
+    <div className={`${theme.cardSoft} text-sm font-semibold text-neutral-600`}>
+      Φόρτωση view...
+    </div>
+  );
+}
 
 function App() {
   const [activeView, setActiveView] = useState<View>("today");
@@ -476,7 +519,7 @@ function App() {
         title: "Δεν μπορεί να διαγραφεί",
         message: `Η κατηγορία "${category.name}" χρησιμοποιείται ήδη σε task. Άλλαξε πρώτα ή διέγραψε τα tasks που τη χρησιμοποιούν.`,
         confirmText: "ΟΚ",
-        onConfirm: () => {},
+        onConfirm: () => { },
       });
 
       return;
@@ -871,13 +914,15 @@ function App() {
                 </div>
               )}
 
-              {activeView === "today" && renderTodayView()}
-              {activeView === "week" && renderWeekView()}
-              {activeView === "month" && renderMonthView()}
-              {activeView === "stats" && renderStatsView()}
-              {activeView === "backlog" && renderBacklogView()}
-              {activeView === "search" && renderSearchView()}
-              {activeView === "profile" && renderProfileView()}
+              <Suspense fallback={<ViewLoadingFallback />}>
+                {activeView === "today" && renderTodayView()}
+                {activeView === "week" && renderWeekView()}
+                {activeView === "month" && renderMonthView()}
+                {activeView === "stats" && renderStatsView()}
+                {activeView === "backlog" && renderBacklogView()}
+                {activeView === "search" && renderSearchView()}
+                {activeView === "profile" && renderProfileView()}
+              </Suspense>
 
               {!mobileMenuOpen && activeView !== "profile" && (
                 <button
