@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { useAuthUser } from "./hooks/useAuthUser";
 import {
   createEmptyTaskForm,
+  defaultRoutineRecurrence,
   type TaskFormState,
   useTasks,
 } from "./hooks/useTasks";
@@ -578,6 +579,7 @@ function App() {
       notes: task.notes,
       priority: task.priority ?? "medium",
       backlogStatus: task.backlogStatus ?? "idea",
+      recurrence: task.recurrence ?? defaultRoutineRecurrence,
     });
   }
 
