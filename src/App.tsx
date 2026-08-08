@@ -183,6 +183,7 @@ function App() {
     tasksLoading,
     saveTask: saveTaskDocument,
     toggleDone,
+    skipRoutineOccurrence,
     deleteTask,
     scheduleBacklogItem: scheduleBacklogItemDocument,
   } = useTasks(firebaseUser);
@@ -674,6 +675,7 @@ function App() {
         }}
         onEditTask={startEditTask}
         onToggleDone={toggleDone}
+        onSkipRoutineOccurrence={skipRoutineOccurrence}
         onDeleteTask={requestDeleteTask}
         onOpenBacklog={() => setActiveView("backlog")}
       />
@@ -699,6 +701,7 @@ function App() {
         onOpenDay={openDateInTodayView}
         onEditTask={startEditTask}
         onToggleDone={toggleDone}
+        onSkipRoutineOccurrence={skipRoutineOccurrence}
         onDeleteTask={requestDeleteTask}
       />
     );
@@ -724,6 +727,7 @@ function App() {
         onEditTask={startEditTask}
         onEditAgendaTask={startEditTaskFromSearch}
         onToggleDone={toggleDone}
+        onSkipRoutineOccurrence={skipRoutineOccurrence}
         onDeleteTask={requestDeleteTask}
       />
     );
