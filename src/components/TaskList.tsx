@@ -8,6 +8,10 @@ type TaskListProps = {
   emptyState: string | EmptyStateOptions;
   onEditTask: (task: Task) => void;
   onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
+  onSkipRoutineOccurrence: (
+    taskId: string,
+    occurrenceDate: string
+  ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
 };
 
@@ -16,6 +20,7 @@ export function TaskList({
   emptyState,
   onEditTask,
   onToggleDone,
+  onSkipRoutineOccurrence,
   onDeleteTask,
 }: TaskListProps) {
   const resolvedEmptyState =
@@ -91,6 +96,16 @@ export function TaskList({
               >
                 {task.status === "done" ? "Undo" : "Done"}
               </button>
+
+              {task.isRoutineOccurrence && (
+                <button
+                  type="button"
+                  onClick={() => onSkipRoutineOccurrence(task.id, task.date)}
+                  className={theme.smallButton}
+                >
+                  Skip today
+                </button>
+              )}
 
               <button
                 type="button"

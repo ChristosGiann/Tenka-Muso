@@ -284,6 +284,22 @@ export function useTasks(firebaseUser: User | null) {
         });
     }
 
+    async function skipRoutineOccurrence(taskId: string, occurrenceDate: string) {
+        if (!firebaseUser) return;
+
+        const task = tasks.find((currentTask) => currentTask.id === taskId);
+        if (!task) return;
+        if (task.type !== "routine") return;
+
+        const taskRef = doc(db, "users", firebaseUser.uid, "tasks", taskId);
+
+        await updateDoc(taskRef, {
+            [`routineSkips.${occurrenceDate}`]: true,
+            [`routineCompletions.${occurrenceDate}`]: deleteField(),
+            updatedAt: serverTimestamp(),
+        });
+    }
+
     async function deleteTask(taskId: string) {
         if (!firebaseUser) return;
 
@@ -314,6 +330,7 @@ export function useTasks(firebaseUser: User | null) {
         tasksLoading,
         saveTask,
         toggleDone,
+        skipRoutineOccurrence,
         deleteTask,
         scheduleBacklogItem,
     };

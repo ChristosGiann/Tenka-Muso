@@ -30,6 +30,10 @@ type MonthViewProps = {
   onEditTask: (task: Task) => void;
   onEditAgendaTask: (task: Task) => void;
   onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
+  onSkipRoutineOccurrence: (
+    taskId: string,
+    occurrenceDate: string
+  ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
 };
 
@@ -48,6 +52,7 @@ export function MonthView({
   onEditTask,
   onEditAgendaTask,
   onToggleDone,
+  onSkipRoutineOccurrence,
   onDeleteTask,
 }: MonthViewProps) {
   return (
@@ -87,6 +92,7 @@ export function MonthView({
             onOpenDate={onOpenDate}
             onEditTask={onEditAgendaTask}
             onToggleDone={onToggleDone}
+            onSkipRoutineOccurrence={onSkipRoutineOccurrence}
           />
 
           <div className={theme.card}>
@@ -110,6 +116,7 @@ export function MonthView({
               }}
               onEditTask={onEditTask}
               onToggleDone={onToggleDone}
+              onSkipRoutineOccurrence={onSkipRoutineOccurrence}
               onDeleteTask={onDeleteTask}
             />
           </div>
