@@ -16,7 +16,11 @@ type TodayViewProps = {
   renderDailyNoteCard: () => ReactNode;
   onSelectedDateChange: (date: string) => void;
   onEditTask: (task: Task) => void;
-  onToggleDone: (taskId: string) => void | Promise<void>;
+  onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
+  onSkipRoutineOccurrence: (
+    taskId: string,
+    occurrenceDate: string
+  ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
   onOpenBacklog: () => void;
 };
@@ -31,6 +35,7 @@ export function TodayView({
   onSelectedDateChange,
   onEditTask,
   onToggleDone,
+  onSkipRoutineOccurrence,
   onDeleteTask,
   onOpenBacklog,
 }: TodayViewProps) {
@@ -80,6 +85,7 @@ export function TodayView({
               }}
               onEditTask={onEditTask}
               onToggleDone={onToggleDone}
+              onSkipRoutineOccurrence={onSkipRoutineOccurrence}
               onDeleteTask={onDeleteTask}
             />
           </div>

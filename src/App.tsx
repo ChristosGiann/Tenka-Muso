@@ -1,27 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
+import { useAuthUser } from "./hooks/useAuthUser";
 import {
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signInAnonymously,
-  signInWithPopup,
-  signOut,
-  updateProfile,
-  type User,
-} from "firebase/auth";
+  createEmptyTaskForm,
+  defaultRoutineRecurrence,
+  type TaskFormState,
+  useTasks,
+} from "./hooks/useTasks";
+import { useCategories } from "./hooks/useCategories";
+import { useDailyNotes } from "./hooks/useDailyNotes";
 import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
-
-import { auth, db } from "./lib/firebase";
+  defaultUserSettings,
+  useUserSettings,
+} from "./hooks/useUserSettings";
 import type {
   BacklogPriority,
   BacklogStatus,
@@ -51,24 +41,60 @@ import { AuthPanel } from "./components/AuthPanel";
 import { DailyNoteCard } from "./components/DailyNoteCard";
 import { Sidebar } from "./components/Sidebar";
 import { MobileNavigation } from "./components/MobileNavigation";
-import { TodayView } from "./views/TodayView";
-import { WeekView } from "./views/WeekView";
-import { MonthView } from "./views/MonthView";
-import { StatsView } from "./views/StatsView";
-import { BacklogView } from "./views/BacklogView";
-import { SearchView } from "./views/SearchView";
-import { ProfileView } from "./views/ProfileView";
 
-const defaultUserSettings = {
-  defaultCategory: "Δουλειά",
-  defaultView: "today" as View,
-  themePreference: "manga-grayscale",
-};
+import {
+  getTasksForDate,
+  getTasksForDates,
+  getTasksForMonth,
+} from "./utils/routines";
 
-function isValidView(value: unknown): value is View {
+const TodayView = lazy(() =>
+  import("./views/TodayView").then((module) => ({
+    default: module.TodayView,
+  }))
+);
+
+const WeekView = lazy(() =>
+  import("./views/WeekView").then((module) => ({
+    default: module.WeekView,
+  }))
+);
+
+const MonthView = lazy(() =>
+  import("./views/MonthView").then((module) => ({
+    default: module.MonthView,
+  }))
+);
+
+const StatsView = lazy(() =>
+  import("./views/StatsView").then((module) => ({
+    default: module.StatsView,
+  }))
+);
+
+const BacklogView = lazy(() =>
+  import("./views/BacklogView").then((module) => ({
+    default: module.BacklogView,
+  }))
+);
+
+const SearchView = lazy(() =>
+  import("./views/SearchView").then((module) => ({
+    default: module.SearchView,
+  }))
+);
+
+const ProfileView = lazy(() =>
+  import("./views/ProfileView").then((module) => ({
+    default: module.ProfileView,
+  }))
+);
+
+function ViewLoadingFallback() {
   return (
-    typeof value === "string" &&
-    ["today", "week", "month", "stats", "backlog", "search", "profile"].includes(value)
+    <div className={`${theme.cardSoft} text-sm font-semibold text-neutral-600`}>
+      Φόρτωση view...
+    </div>
   );
 }
 
@@ -76,38 +102,21 @@ function App() {
   const [activeView, setActiveView] = useState<View>("today");
   const [selectedDate, setSelectedDate] = useState(getToday());
   const [selectedWeekDate, setSelectedWeekDate] = useState(getToday());
-  const [selectedMonth, setSelectedMonth] = useState(getMonthFromDate(getToday()));
+  const [selectedMonth, setSelectedMonth] = useState(
+    getMonthFromDate(getToday())
+  );
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(getToday());
 
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
-
-  const [dailyNotes, setDailyNotes] = useState<Record<string, string>>({});
-  const [dailyNoteDraft, setDailyNoteDraft] = useState("");
-  const [dailyNotesLoading, setDailyNotesLoading] = useState(true);
-  const [dailyNoteSaving, setDailyNoteSaving] = useState(false);
-  const [dailyNoteSaved, setDailyNoteSaved] = useState(false);
-  const [dailyNoteError, setDailyNoteError] = useState<string | null>(null);
-
-  const [form, setForm] = useState({
-    title: "",
-    type: "task" as TaskType,
-    category: "Δουλειά",
-    date: getToday(),
-    startTime: "",
-    endTime: "",
-    notes: "",
-    priority: "medium" as BacklogPriority,
-    backlogStatus: "idea" as BacklogStatus,
-  });
+  const [form, setForm] = useState<TaskFormState>(() =>
+    createEmptyTaskForm(defaultUserSettings.defaultCategory, getToday())
+  );
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-
-  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
-
   const [showCategories, setShowCategories] = useState(false);
-  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(
+    null
+  );
 
   const [backlogCategoryFilter, setBacklogCategoryFilter] = useState("all");
 
@@ -129,7 +138,9 @@ function App() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchCategoryFilter, setSearchCategoryFilter] = useState("all");
-  const [searchTypeFilter, setSearchTypeFilter] = useState<TaskType | "all">("all");
+  const [searchTypeFilter, setSearchTypeFilter] = useState<TaskType | "all">(
+    "all"
+  );
   const [searchStatusFilter, setSearchStatusFilter] = useState<
     "pending" | "done" | "all"
   >("all");
@@ -140,6 +151,60 @@ function App() {
   const taskFormRef = useRef<HTMLDivElement | null>(null);
   const taskTitleInputRef = useRef<HTMLInputElement | null>(null);
 
+  const {
+    firebaseUser,
+    authLoading,
+    authError,
+    authActionLoading,
+    profileNameDraft,
+    profileNameSaving,
+    profileNameSaved,
+    profileNameError,
+    updateProfileNameDraft,
+    signInWithGoogle,
+    signOutUser,
+    saveProfileName,
+  } = useAuthUser();
+
+  const {
+    userSettings,
+    settingsLoading,
+    settingsSaving,
+    settingsSaved,
+    settingsError,
+    updateDefaultCategory,
+    updateDefaultView,
+    updateThemePreference,
+    saveUserSettings,
+  } = useUserSettings(firebaseUser);
+
+  const {
+    tasks,
+    tasksLoading,
+    saveTask: saveTaskDocument,
+    toggleDone,
+    skipRoutineOccurrence,
+    deleteTask,
+    scheduleBacklogItem: scheduleBacklogItemDocument,
+  } = useTasks(firebaseUser);
+
+  const {
+    customCategories,
+    addCategory: addCategoryDocument,
+    deleteCategory: deleteCategoryDocument,
+  } = useCategories(firebaseUser);
+
+  const {
+    dailyNotes,
+    dailyNoteDraft,
+    dailyNotesLoading,
+    dailyNoteSaving,
+    dailyNoteSaved,
+    dailyNoteError,
+    updateDailyNoteDraft,
+    saveDailyNote,
+  } = useDailyNotes(firebaseUser, selectedDate);
+
   const customCategoryNames = customCategories.map((category) => category.name);
 
   const categories = Array.from(
@@ -147,15 +212,11 @@ function App() {
   );
 
   const dayTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => task.date === selectedDate && task.type !== "backlog"
-    );
+    return getTasksForDate(tasks, selectedDate);
   }, [tasks, selectedDate]);
 
   const monthTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => task.date.startsWith(selectedMonth) && task.type !== "backlog"
-    );
+    return getTasksForMonth(tasks, selectedMonth);
   }, [tasks, selectedMonth]);
 
   const weekDates = useMemo(() => {
@@ -163,16 +224,12 @@ function App() {
   }, [selectedWeekDate]);
 
   const weekTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => weekDates.includes(task.date) && task.type !== "backlog"
-    );
+    return getTasksForDates(tasks, weekDates);
   }, [tasks, weekDates]);
 
   const weekDaySummaries = useMemo(() => {
     return weekDates.map((date) => {
-      const tasksForDay = tasks.filter(
-        (task) => task.date === date && task.type !== "backlog"
-      );
+      const tasksForDay = getTasksForDate(tasks, date);
 
       const doneTasksForDay = tasksForDay.filter(
         (task) => task.status === "done"
@@ -204,7 +261,8 @@ function App() {
 
     const filteredItems = backlogItems.filter((item) => {
       const matchesCategory =
-        backlogCategoryFilter === "all" || item.category === backlogCategoryFilter;
+        backlogCategoryFilter === "all" ||
+        item.category === backlogCategoryFilter;
 
       const matchesPriority =
         backlogPriorityFilter === "all" ||
@@ -250,7 +308,8 @@ function App() {
     return tasks
       .filter((task) => {
         const matchesCategory =
-          searchCategoryFilter === "all" || task.category === searchCategoryFilter;
+          searchCategoryFilter === "all" ||
+          task.category === searchCategoryFilter;
 
         const matchesType =
           searchTypeFilter === "all" || task.type === searchTypeFilter;
@@ -277,7 +336,8 @@ function App() {
           .toLowerCase();
 
         const matchesQuery =
-          !normalizedSearchQuery || searchableText.includes(normalizedSearchQuery);
+          !normalizedSearchQuery ||
+          searchableText.includes(normalizedSearchQuery);
 
         return (
           matchesCategory &&
@@ -323,7 +383,8 @@ function App() {
         const searchableText = `${date} daily journal note ${content}`.toLowerCase();
 
         const matchesQuery =
-          !normalizedSearchQuery || searchableText.includes(normalizedSearchQuery);
+          !normalizedSearchQuery ||
+          searchableText.includes(normalizedSearchQuery);
 
         return matchesDateFrom && matchesDateTo && matchesQuery;
       })
@@ -344,15 +405,13 @@ function App() {
   ]);
 
   const searchResults = useMemo(() => {
-    return [...taskSearchResults, ...dailyNoteSearchResults].sort((first, second) =>
-      second.date.localeCompare(first.date)
+    return [...taskSearchResults, ...dailyNoteSearchResults].sort(
+      (first, second) => second.date.localeCompare(first.date)
     );
   }, [taskSearchResults, dailyNoteSearchResults]);
 
   const selectedCalendarTasks = useMemo(() => {
-    return tasks.filter(
-      (task) => task.date === selectedCalendarDate && task.type !== "backlog"
-    );
+    return getTasksForDate(tasks, selectedCalendarDate);
   }, [tasks, selectedCalendarDate]);
 
   const selectedCalendarStats = buildStats(selectedCalendarTasks, categories);
@@ -361,443 +420,24 @@ function App() {
     return getCalendarDays(selectedMonth);
   }, [selectedMonth]);
 
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authActionLoading, setAuthActionLoading] = useState(false);
-
-  const [profileNameDraft, setProfileNameDraft] = useState("");
-  const [profileNameSaving, setProfileNameSaving] = useState(false);
-  const [profileNameSaved, setProfileNameSaved] = useState(false);
-  const [profileNameError, setProfileNameError] = useState<string | null>(null);
-
-  const [userSettings, setUserSettings] = useState(defaultUserSettings);
-  const [settingsLoading, setSettingsLoading] = useState(true);
-  const [settingsSaving, setSettingsSaving] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
-  const [settingsError, setSettingsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setAuthError(null);
-
-      if (user) {
-        setFirebaseUser(user);
-        setAuthLoading(false);
-        setTasksLoading(true);
-        return;
-      }
-
-      setFirebaseUser(null);
-      setTasks([]);
-      setCustomCategories([]);
-      setDailyNotes({});
-      setDailyNoteDraft("");
-      setUserSettings(defaultUserSettings);
-      setTasksLoading(true);
-      setDailyNotesLoading(true);
-      setSettingsLoading(true);
-      setProfileNameDraft("");
-      setProfileNameSaved(false);
-      setProfileNameError(null);
-
-      signInAnonymously(auth).catch((error) => {
-        console.error("Anonymous sign-in failed:", error);
-        setAuthError("Δεν μπόρεσε να γίνει anonymous σύνδεση.");
-        setAuthLoading(false);
-        setTasksLoading(false);
-        setDailyNotesLoading(false);
-        setSettingsLoading(false);
-      });
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  function getAuthErrorMessage(error: unknown) {
-    if (error instanceof Error) {
-      return error.message;
-    }
-
-    return "Κάτι πήγε λάθος με τη σύνδεση.";
-  }
-
-  async function signInWithGoogle() {
-    if (authActionLoading) return;
-
-    setAuthActionLoading(true);
-    setAuthError(null);
-
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({
-      prompt: "select_account",
-    });
-
-    try {
-      const result = await signInWithPopup(auth, provider);
-
-      console.log("Google sign-in user:", {
-        uid: result.user.uid,
-        email: result.user.email,
-        isAnonymous: result.user.isAnonymous,
-      });
-    } catch (error) {
-      console.error("Google sign-in failed:", error);
-
-      const errorCode = getAuthErrorCode(error);
-
-      if (errorCode === "auth/popup-blocked") {
-        setAuthError(
-          "Ο browser μπλόκαρε το Google popup. Πάτα allow popups για αυτό το site και δοκίμασε ξανά."
-        );
-      } else if (errorCode === "auth/popup-closed-by-user") {
-        setAuthError("Το Google popup έκλεισε πριν ολοκληρωθεί η σύνδεση.");
-      } else if (errorCode === "auth/cancelled-popup-request") {
-        setAuthError("Άνοιξε δεύτερο login popup. Πάτα το κουμπί μία φορά και περίμενε.");
-      } else {
-        setAuthError(getAuthErrorMessage(error));
-      }
-    } finally {
-      setAuthActionLoading(false);
-    }
-  }
-
-  function getAuthErrorCode(error: unknown) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      typeof (error as { code?: unknown }).code === "string"
-    ) {
-      return (error as { code: string }).code;
-    }
-
-    return null;
-  }
-
   async function handleSignOut() {
-    setAuthError(null);
-    setTasks([]);
-    setCustomCategories([]);
-    setDailyNotes({});
-    setDailyNoteDraft("");
-    setTasksLoading(true);
-    setDailyNotesLoading(true);
-    setUserSettings(defaultUserSettings);
-    setSettingsLoading(true);
-    setSettingsSaved(false);
-    setSettingsError(null);
-    setProfileNameDraft("");
-    setProfileNameSaved(false);
-    setProfileNameError(null);
+    setEditingTaskId(null);
+    setConfirmModal(null);
+    setBacklogScheduleDates({});
 
-    await signOut(auth);
+    await signOutUser();
   }
-
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    const tasksRef = collection(db, "users", firebaseUser.uid, "tasks");
-    const tasksQuery = query(tasksRef, orderBy("createdAt", "desc"));
-
-    const unsubscribe = onSnapshot(
-      tasksQuery,
-      (snapshot) => {
-        const firestoreTasks: Task[] = snapshot.docs.map((docSnapshot) => {
-          const data = docSnapshot.data();
-
-          return {
-            id: docSnapshot.id,
-            title: data.title ?? "",
-            type: data.type ?? "task",
-            category: data.category ?? "Προσωπικά",
-            date: data.date ?? getToday(),
-            startTime: data.startTime ?? "",
-            endTime: data.endTime ?? "",
-            status: data.status ?? "pending",
-            notes: data.notes ?? "",
-            priority: data.priority ?? "medium",
-            backlogStatus: data.backlogStatus ?? "idea",
-          };
-        });
-
-        setTasks(firestoreTasks);
-        setTasksLoading(false);
-      },
-      (error) => {
-        console.error("Firestore tasks listener failed:", error);
-        setTasksLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [firebaseUser]);
-
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    const categoriesRef = collection(db, "users", firebaseUser.uid, "categories");
-    const categoriesQuery = query(categoriesRef, orderBy("createdAt", "asc"));
-
-    const unsubscribe = onSnapshot(
-      categoriesQuery,
-      (snapshot) => {
-        const firestoreCategories: CustomCategory[] = snapshot.docs
-          .map((docSnapshot) => {
-            const data = docSnapshot.data();
-
-            return {
-              id: docSnapshot.id,
-              name: data.name as string,
-            };
-          })
-          .filter((category) => Boolean(category.name));
-
-        setCustomCategories(firestoreCategories);
-      },
-      (error) => {
-        console.error("Firestore categories listener failed:", error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [firebaseUser]);
-
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    setDailyNotesLoading(true);
-
-    const dailyNotesRef = collection(
-      db,
-      "users",
-      firebaseUser.uid,
-      "dailyNotes"
-    );
-
-    const unsubscribe = onSnapshot(
-      dailyNotesRef,
-      (snapshot) => {
-        const notesByDate: Record<string, string> = {};
-
-        snapshot.docs.forEach((docSnapshot) => {
-          const data = docSnapshot.data();
-
-          notesByDate[docSnapshot.id] =
-            typeof data.content === "string" ? data.content : "";
-        });
-
-        setDailyNotes(notesByDate);
-        setDailyNotesLoading(false);
-      },
-      (error) => {
-        console.error("Firestore daily notes listener failed:", error);
-        setDailyNoteError("Δεν μπόρεσαν να φορτωθούν τα daily notes.");
-        setDailyNotesLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [firebaseUser]);
-
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    setSettingsLoading(true);
-
-    const settingsRef = doc(db, "users", firebaseUser.uid, "settings", "app");
-
-    const unsubscribe = onSnapshot(
-      settingsRef,
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setUserSettings(defaultUserSettings);
-          setSettingsLoading(false);
-          return;
-        }
-
-        const data = snapshot.data();
-
-        setUserSettings({
-          defaultCategory:
-            typeof data.defaultCategory === "string"
-              ? data.defaultCategory
-              : defaultUserSettings.defaultCategory,
-          defaultView: isValidView(data.defaultView)
-            ? data.defaultView
-            : defaultUserSettings.defaultView,
-          themePreference:
-            typeof data.themePreference === "string"
-              ? data.themePreference
-              : defaultUserSettings.themePreference,
-        });
-
-        setSettingsLoading(false);
-      },
-      (error) => {
-        console.error("Firestore user settings listener failed:", error);
-        setSettingsError("Δεν μπόρεσαν να φορτωθούν τα settings.");
-        setSettingsLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [firebaseUser]);
-
-  useEffect(() => {
-    setDailyNoteDraft(dailyNotes[selectedDate] ?? "");
-    setDailyNoteSaved(false);
-    setDailyNoteError(null);
-  }, [dailyNotes, selectedDate]);
-
-  useEffect(() => {
-    setProfileNameDraft(firebaseUser?.displayName ?? "");
-    setProfileNameSaved(false);
-    setProfileNameError(null);
-  }, [firebaseUser?.uid, firebaseUser?.displayName]);
 
   async function saveTask() {
-    if (!firebaseUser) return;
     if (!form.title.trim()) return;
 
-    if (editingTaskId) {
-      const taskRef = doc(db, "users", firebaseUser.uid, "tasks", editingTaskId);
-
-      await updateDoc(taskRef, {
-        title: form.title.trim(),
-        type: form.type,
-        category: form.category,
-        date: form.date,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        notes: form.notes.trim(),
-        priority: form.priority,
-        backlogStatus: form.backlogStatus,
-        updatedAt: serverTimestamp(),
-      });
-
-      setEditingTaskId(null);
-    } else {
-      const tasksRef = collection(db, "users", firebaseUser.uid, "tasks");
-
-      await addDoc(tasksRef, {
-        title: form.title.trim(),
-        type: form.type,
-        category: form.category,
-        date: form.date,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        status: "pending",
-        notes: form.notes.trim(),
-        priority: form.priority,
-        backlogStatus: form.backlogStatus,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    setForm({
-      title: "",
-      type: "task",
-      category: userSettings.defaultCategory,
-      date: selectedDate,
-      startTime: "",
-      endTime: "",
-      notes: "",
-      priority: "medium",
-      backlogStatus: "idea",
+    await saveTaskDocument({
+      editingTaskId,
+      form,
     });
-  }
 
-  async function saveDailyNote() {
-    if (!firebaseUser) return;
-
-    setDailyNoteSaving(true);
-    setDailyNoteSaved(false);
-    setDailyNoteError(null);
-
-    try {
-      const dailyNoteRef = doc(
-        db,
-        "users",
-        firebaseUser.uid,
-        "dailyNotes",
-        selectedDate
-      );
-
-      await setDoc(
-        dailyNoteRef,
-        {
-          date: selectedDate,
-          content: dailyNoteDraft,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      setDailyNoteSaved(true);
-    } catch (error) {
-      console.error("Save daily note failed:", error);
-      setDailyNoteError("Δεν μπόρεσε να αποθηκευτεί το daily note.");
-    } finally {
-      setDailyNoteSaving(false);
-    }
-  }
-
-  async function saveUserSettings() {
-    if (!firebaseUser) return;
-
-    setSettingsSaving(true);
-    setSettingsSaved(false);
-    setSettingsError(null);
-
-    try {
-      const settingsRef = doc(db, "users", firebaseUser.uid, "settings", "app");
-
-      await setDoc(
-        settingsRef,
-        {
-          defaultCategory: userSettings.defaultCategory,
-          defaultView: userSettings.defaultView,
-          themePreference: userSettings.themePreference,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      setSettingsSaved(true);
-    } catch (error) {
-      console.error("Save user settings failed:", error);
-      setSettingsError("Δεν μπόρεσαν να αποθηκευτούν τα settings.");
-    } finally {
-      setSettingsSaving(false);
-    }
-  }
-
-  async function saveProfileName() {
-    if (!firebaseUser) return;
-
-    setProfileNameSaving(true);
-    setProfileNameSaved(false);
-    setProfileNameError(null);
-
-    try {
-      const trimmedName = profileNameDraft.trim();
-
-      await updateProfile(firebaseUser, {
-        displayName: trimmedName || null,
-      });
-
-      await firebaseUser.reload();
-
-      setFirebaseUser(auth.currentUser);
-      setProfileNameSaved(true);
-    } catch (error) {
-      console.error("Save profile name failed:", error);
-      setProfileNameError("Δεν μπόρεσε να αποθηκευτεί το όνομα.");
-    } finally {
-      setProfileNameSaving(false);
-    }
+    setEditingTaskId(null);
+    setForm(createEmptyTaskForm(userSettings.defaultCategory, selectedDate));
   }
 
   function exportUserData() {
@@ -840,27 +480,6 @@ function App() {
     URL.revokeObjectURL(url);
   }
 
-  async function toggleDone(taskId: string) {
-    if (!firebaseUser) return;
-
-    const task = tasks.find((currentTask) => currentTask.id === taskId);
-    if (!task) return;
-
-    const taskRef = doc(db, "users", firebaseUser.uid, "tasks", taskId);
-
-    await updateDoc(taskRef, {
-      status: task.status === "done" ? "pending" : "done",
-      updatedAt: serverTimestamp(),
-    });
-  }
-
-  async function deleteTask(taskId: string) {
-    if (!firebaseUser) return;
-
-    const taskRef = doc(db, "users", firebaseUser.uid, "tasks", taskId);
-    await deleteDoc(taskRef);
-  }
-
   function requestDeleteTask(task: Task) {
     setConfirmModal({
       title: "Διαγραφή task",
@@ -875,31 +494,18 @@ function App() {
   }
 
   async function addCategory() {
-    if (!firebaseUser) return;
-
-    const trimmedName = newCategoryName.trim();
-    if (!trimmedName) return;
-
-    const categoryAlreadyExists = categories.some(
-      (category) => category.toLowerCase() === trimmedName.toLowerCase()
+    const addedCategoryName = await addCategoryDocument(
+      newCategoryName,
+      categories
     );
 
-    if (categoryAlreadyExists) {
-      setNewCategoryName("");
-      return;
-    }
-
-    const categoriesRef = collection(db, "users", firebaseUser.uid, "categories");
-
-    await addDoc(categoriesRef, {
-      name: trimmedName,
-      createdAt: serverTimestamp(),
-    });
-
     setNewCategoryName("");
+
+    if (!addedCategoryName) return;
+
     setForm((currentForm) => ({
       ...currentForm,
-      category: trimmedName,
+      category: addedCategoryName,
     }));
   }
 
@@ -928,17 +534,7 @@ function App() {
   }
 
   async function deleteCategory(category: CustomCategory) {
-    if (!firebaseUser) return;
-
-    const categoryRef = doc(
-      db,
-      "users",
-      firebaseUser.uid,
-      "categories",
-      category.id
-    );
-
-    await deleteDoc(categoryRef);
+    await deleteCategoryDocument(category);
 
     if (form.category === category.name) {
       setForm((currentForm) => ({
@@ -974,29 +570,19 @@ function App() {
       title: task.title,
       type: task.type,
       category: task.category,
-      date: task.date,
+      date: task.routineStartDate ?? task.date,
       startTime: task.startTime,
       endTime: task.endTime,
       notes: task.notes,
       priority: task.priority ?? "medium",
       backlogStatus: task.backlogStatus ?? "idea",
+      recurrence: task.recurrence ?? defaultRoutineRecurrence,
     });
   }
 
   function cancelEditTask() {
     setEditingTaskId(null);
-
-    setForm({
-      title: "",
-      type: "task",
-      category: userSettings.defaultCategory,
-      date: selectedDate,
-      startTime: "",
-      endTime: "",
-      notes: "",
-      priority: "medium",
-      backlogStatus: "idea",
-    });
+    setForm(createEmptyTaskForm(userSettings.defaultCategory, selectedDate));
   }
 
   function openQuickAddTask() {
@@ -1004,17 +590,7 @@ function App() {
     setMobileMenuOpen(false);
     setActiveView("today");
 
-    setForm({
-      title: "",
-      type: "task",
-      category: userSettings.defaultCategory,
-      date: selectedDate,
-      startTime: "",
-      endTime: "",
-      notes: "",
-      priority: "medium",
-      backlogStatus: "idea",
-    });
+    setForm(createEmptyTaskForm(userSettings.defaultCategory, selectedDate));
 
     window.setTimeout(() => {
       taskFormRef.current?.scrollIntoView({
@@ -1074,10 +650,7 @@ function App() {
         dailyNoteSaving={dailyNoteSaving}
         dailyNoteSaved={dailyNoteSaved}
         dailyNoteError={dailyNoteError}
-        onDailyNoteDraftChange={(value) => {
-          setDailyNoteDraft(value);
-          setDailyNoteSaved(false);
-        }}
+        onDailyNoteDraftChange={updateDailyNoteDraft}
         onSaveDailyNote={saveDailyNote}
       />
     );
@@ -1102,6 +675,7 @@ function App() {
         }}
         onEditTask={startEditTask}
         onToggleDone={toggleDone}
+        onSkipRoutineOccurrence={skipRoutineOccurrence}
         onDeleteTask={requestDeleteTask}
         onOpenBacklog={() => setActiveView("backlog")}
       />
@@ -1127,6 +701,7 @@ function App() {
         onOpenDay={openDateInTodayView}
         onEditTask={startEditTask}
         onToggleDone={toggleDone}
+        onSkipRoutineOccurrence={skipRoutineOccurrence}
         onDeleteTask={requestDeleteTask}
       />
     );
@@ -1152,6 +727,7 @@ function App() {
         onEditTask={startEditTask}
         onEditAgendaTask={startEditTaskFromSearch}
         onToggleDone={toggleDone}
+        onSkipRoutineOccurrence={skipRoutineOccurrence}
         onDeleteTask={requestDeleteTask}
       />
     );
@@ -1218,32 +794,11 @@ function App() {
         settingsError={settingsError}
         tasksLoading={tasksLoading}
         dailyNotesLoading={dailyNotesLoading}
-        onProfileNameDraftChange={(value) => {
-          setProfileNameDraft(value);
-          setProfileNameSaved(false);
-        }}
+        onProfileNameDraftChange={updateProfileNameDraft}
         onSaveProfileName={saveProfileName}
-        onDefaultCategoryChange={(value) => {
-          setUserSettings((currentSettings) => ({
-            ...currentSettings,
-            defaultCategory: value,
-          }));
-          setSettingsSaved(false);
-        }}
-        onDefaultViewChange={(value) => {
-          setUserSettings((currentSettings) => ({
-            ...currentSettings,
-            defaultView: value,
-          }));
-          setSettingsSaved(false);
-        }}
-        onThemePreferenceChange={(value) => {
-          setUserSettings((currentSettings) => ({
-            ...currentSettings,
-            themePreference: value,
-          }));
-          setSettingsSaved(false);
-        }}
+        onDefaultCategoryChange={updateDefaultCategory}
+        onDefaultViewChange={updateDefaultView}
+        onThemePreferenceChange={updateThemePreference}
         onSaveUserSettings={saveUserSettings}
         onExportUserData={exportUserData}
         onSignInWithGoogle={signInWithGoogle}
@@ -1286,20 +841,10 @@ function App() {
   }
 
   async function scheduleBacklogItem(task: Task) {
-    if (!firebaseUser) return;
-
     const scheduleDate = getBacklogScheduleDate(task.id);
     if (!scheduleDate) return;
 
-    const taskRef = doc(db, "users", firebaseUser.uid, "tasks", task.id);
-
-    await updateDoc(taskRef, {
-      type: "task",
-      date: scheduleDate,
-      status: "pending",
-      backlogStatus: "planned",
-      updatedAt: serverTimestamp(),
-    });
+    await scheduleBacklogItemDocument(task, scheduleDate);
 
     setBacklogScheduleDates((currentDates) => {
       const nextDates = { ...currentDates };
@@ -1364,18 +909,22 @@ function App() {
               {renderAuthPanel()}
 
               {tasksLoading && (
-                <div className={`${theme.cardSoft} mb-4 text-sm font-semibold text-neutral-600`}>
+                <div
+                  className={`${theme.cardSoft} mb-4 text-sm font-semibold text-neutral-600`}
+                >
                   Φόρτωση tasks από Firestore...
                 </div>
               )}
 
-              {activeView === "today" && renderTodayView()}
-              {activeView === "week" && renderWeekView()}
-              {activeView === "month" && renderMonthView()}
-              {activeView === "stats" && renderStatsView()}
-              {activeView === "backlog" && renderBacklogView()}
-              {activeView === "search" && renderSearchView()}
-              {activeView === "profile" && renderProfileView()}
+              <Suspense fallback={<ViewLoadingFallback />}>
+                {activeView === "today" && renderTodayView()}
+                {activeView === "week" && renderWeekView()}
+                {activeView === "month" && renderMonthView()}
+                {activeView === "stats" && renderStatsView()}
+                {activeView === "backlog" && renderBacklogView()}
+                {activeView === "search" && renderSearchView()}
+                {activeView === "profile" && renderProfileView()}
+              </Suspense>
 
               {!mobileMenuOpen && activeView !== "profile" && (
                 <button
@@ -1389,7 +938,6 @@ function App() {
                   </span>
                 </button>
               )}
-
             </div>
           </main>
         </div>

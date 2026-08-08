@@ -8,7 +8,11 @@ type MonthAgendaProps = {
   selectedCalendarTasks: Task[];
   onOpenDate: (date: string) => void;
   onEditTask: (task: Task) => void;
-  onToggleDone: (taskId: string) => void | Promise<void>;
+  onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
+  onSkipRoutineOccurrence: (
+    taskId: string,
+    occurrenceDate: string
+  ) => void | Promise<void>;
 };
 
 export function MonthAgenda({
@@ -17,6 +21,7 @@ export function MonthAgenda({
   onOpenDate,
   onEditTask,
   onToggleDone,
+  onSkipRoutineOccurrence,
 }: MonthAgendaProps) {
   return (
     <div className={theme.card}>
@@ -56,7 +61,7 @@ export function MonthAgenda({
 
           return (
             <div
-              key={task.id}
+              key={`${task.id}-${task.date}`}
               className={`${theme.innerPanel} flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between`}
             >
               <div>
@@ -109,7 +114,7 @@ export function MonthAgenda({
 
                 <button
                   type="button"
-                  onClick={() => onToggleDone(task.id)}
+                  onClick={() => onToggleDone(task.id, task.date)}
                   className={
                     task.status === "done"
                       ? theme.smallButton
@@ -118,6 +123,16 @@ export function MonthAgenda({
                 >
                   {task.status === "done" ? "Undo" : "Done"}
                 </button>
+
+                {task.isRoutineOccurrence && (
+                  <button
+                    type="button"
+                    onClick={() => onSkipRoutineOccurrence(task.id, task.date)}
+                    className={theme.smallButton}
+                  >
+                    Skip today
+                  </button>
+                )}
               </div>
             </div>
           );

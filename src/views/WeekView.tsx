@@ -28,7 +28,11 @@ type WeekViewProps = {
   onSelectedWeekDateChange: (date: string) => void;
   onOpenDay: (date: string) => void;
   onEditTask: (task: Task) => void;
-  onToggleDone: (taskId: string) => void | Promise<void>;
+  onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
+  onSkipRoutineOccurrence: (
+    taskId: string,
+    occurrenceDate: string
+  ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
 };
 
@@ -46,6 +50,7 @@ export function WeekView({
   onOpenDay,
   onEditTask,
   onToggleDone,
+  onSkipRoutineOccurrence,
   onDeleteTask,
 }: WeekViewProps) {
   return (
@@ -121,17 +126,15 @@ export function WeekView({
                     key={daySummary.date}
                     type="button"
                     onClick={() => onOpenDay(daySummary.date)}
-                    className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] ${
-                      isToday
+                    className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] ${isToday
                         ? "border-neutral-950 bg-neutral-950 text-stone-50"
                         : "border-neutral-300 bg-stone-50/75 text-neutral-950"
-                    }`}
+                      }`}
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <p
-                        className={`text-sm font-bold ${
-                          isToday ? "text-stone-300" : "text-neutral-500"
-                        }`}
+                        className={`text-sm font-bold ${isToday ? "text-stone-300" : "text-neutral-500"
+                          }`}
                       >
                         {weekDays[index]}
                       </p>
@@ -144,9 +147,8 @@ export function WeekView({
                     </div>
 
                     <p
-                      className={`text-sm font-semibold ${
-                        isToday ? "text-stone-300" : "text-neutral-500"
-                      }`}
+                      className={`text-sm font-semibold ${isToday ? "text-stone-300" : "text-neutral-500"
+                        }`}
                     >
                       {daySummary.date}
                     </p>
@@ -156,9 +158,8 @@ export function WeekView({
                     </p>
 
                     <p
-                      className={`mt-2 text-sm font-semibold ${
-                        isToday ? "text-stone-300" : "text-neutral-500"
-                      }`}
+                      className={`mt-2 text-sm font-semibold ${isToday ? "text-stone-300" : "text-neutral-500"
+                        }`}
                     >
                       {daySummary.doneTasks}/{daySummary.totalTasks} done
                     </p>
@@ -189,6 +190,7 @@ export function WeekView({
               }}
               onEditTask={onEditTask}
               onToggleDone={onToggleDone}
+              onSkipRoutineOccurrence={onSkipRoutineOccurrence}
               onDeleteTask={onDeleteTask}
             />
           </div>
