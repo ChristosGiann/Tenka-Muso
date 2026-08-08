@@ -35,6 +35,8 @@ export type Task = {
   recurrence?: RoutineRecurrence;
   routineCompletions?: Record<string, TaskStatus>;
   routineSkips?: Record<string, boolean>;
+  isRoutineOccurrence?: boolean;
+  routineStartDate?: string;
 };
 
 export type CustomCategory = {

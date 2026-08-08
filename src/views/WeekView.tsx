@@ -28,7 +28,7 @@ type WeekViewProps = {
   onSelectedWeekDateChange: (date: string) => void;
   onOpenDay: (date: string) => void;
   onEditTask: (task: Task) => void;
-  onToggleDone: (taskId: string) => void | Promise<void>;
+  onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
 };
 

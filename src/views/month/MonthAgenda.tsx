@@ -8,7 +8,7 @@ type MonthAgendaProps = {
   selectedCalendarTasks: Task[];
   onOpenDate: (date: string) => void;
   onEditTask: (task: Task) => void;
-  onToggleDone: (taskId: string) => void | Promise<void>;
+  onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
 };
 
 export function MonthAgenda({
@@ -56,7 +56,7 @@ export function MonthAgenda({
 
           return (
             <div
-              key={task.id}
+              key={`${task.id}-${task.date}`}
               className={`${theme.innerPanel} flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between`}
             >
               <div>
@@ -109,7 +109,7 @@ export function MonthAgenda({
 
                 <button
                   type="button"
-                  onClick={() => onToggleDone(task.id)}
+                  onClick={() => onToggleDone(task.id, task.date)}
                   className={
                     task.status === "done"
                       ? theme.smallButton

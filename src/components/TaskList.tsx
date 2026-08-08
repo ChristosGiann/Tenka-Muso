@@ -7,7 +7,7 @@ type TaskListProps = {
   tasks: Task[];
   emptyState: string | EmptyStateOptions;
   onEditTask: (task: Task) => void;
-  onToggleDone: (taskId: string) => void;
+  onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
 };
 
@@ -21,10 +21,10 @@ export function TaskList({
   const resolvedEmptyState =
     typeof emptyState === "string"
       ? {
-          title: emptyState,
-          description:
-            "Χρησιμοποίησε τη φόρμα νέου task για να ξεκινήσεις να χτίζεις την ημέρα σου.",
-        }
+        title: emptyState,
+        description:
+          "Χρησιμοποίησε τη φόρμα νέου task για να ξεκινήσεις να χτίζεις την ημέρα σου.",
+      }
       : emptyState;
 
   return (
@@ -36,13 +36,17 @@ export function TaskList({
 
         return (
           <div
-            key={task.id}
+            key={`${task.id}-${task.date}`}
             className="flex flex-col gap-3 rounded-2xl border border-neutral-300/80 bg-stone-50/75 p-4 transition hover:-translate-y-0.5 hover:shadow-[0_10px_25px_rgba(23,23,23,0.08)] md:flex-row md:items-center md:justify-between"
           >
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className={theme.badge}>{task.category}</span>
                 <span className={theme.badge}>{task.type}</span>
+
+                {task.isRoutineOccurrence && (
+                  <span className={theme.badge}>occurrence</span>
+                )}
 
                 {duration > 0 && (
                   <span className={theme.darkBadge}>
@@ -78,7 +82,7 @@ export function TaskList({
 
               <button
                 type="button"
-                onClick={() => onToggleDone(task.id)}
+                onClick={() => onToggleDone(task.id, task.date)}
                 className={
                   task.status === "done"
                     ? theme.smallButton
