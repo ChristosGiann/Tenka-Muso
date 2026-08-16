@@ -13,6 +13,19 @@ export type View =
 export type BacklogPriority = "low" | "medium" | "high";
 export type BacklogStatus = "idea" | "someday" | "planned";
 
+export type GoalPeriod = "weekly" | "monthly";
+export type GoalMetric = "hours" | "completions" | "count";
+
+export type Goal = {
+  id: string;
+  title: string;
+  category: string;
+  targetValue: number;
+  metric: GoalMetric;
+  period: GoalPeriod;
+  active: boolean;
+};
+
 export type WeekdayNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export type RoutineRecurrence = {
