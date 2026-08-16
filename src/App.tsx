@@ -12,11 +12,17 @@ import {
   defaultUserSettings,
   useUserSettings,
 } from "./hooks/useUserSettings";
+import {
+  createEmptyGoalForm,
+  type GoalFormState,
+  useGoals,
+} from "./hooks/useGoals";
 import type {
   BacklogPriority,
   BacklogStatus,
   ConfirmModalState,
   CustomCategory,
+  Goal,
   Task,
   TaskType,
   View,
@@ -111,6 +117,12 @@ function App() {
     createEmptyTaskForm(defaultUserSettings.defaultCategory, getToday())
   );
 
+  const [goalForm, setGoalForm] = useState<GoalFormState>(() =>
+    createEmptyGoalForm(defaultUserSettings.defaultCategory)
+  );
+
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showCategories, setShowCategories] = useState(false);
@@ -187,6 +199,14 @@ function App() {
     deleteTask,
     scheduleBacklogItem: scheduleBacklogItemDocument,
   } = useTasks(firebaseUser);
+
+  const {
+    goals,
+    goalsLoading,
+    saveGoal: saveGoalDocument,
+    deleteGoal,
+    toggleGoalActive,
+  } = useGoals(firebaseUser);
 
   const {
     customCategories,
@@ -440,6 +460,49 @@ function App() {
     setForm(createEmptyTaskForm(userSettings.defaultCategory, selectedDate));
   }
 
+  async function saveGoal() {
+    if (!goalForm.title.trim()) return;
+
+    await saveGoalDocument({
+      editingGoalId,
+      form: goalForm,
+    });
+
+    setEditingGoalId(null);
+    setGoalForm(createEmptyGoalForm(userSettings.defaultCategory));
+  }
+
+  function startEditGoal(goal: Goal) {
+    setEditingGoalId(goal.id);
+
+    setGoalForm({
+      title: goal.title,
+      category: goal.category,
+      targetValue: String(goal.targetValue),
+      metric: goal.metric,
+      period: goal.period,
+      active: goal.active,
+    });
+  }
+
+  function cancelEditGoal() {
+    setEditingGoalId(null);
+    setGoalForm(createEmptyGoalForm(userSettings.defaultCategory));
+  }
+
+  function requestDeleteGoal(goal: Goal) {
+    setConfirmModal({
+      title: "Διαγραφή goal",
+      message: `Θέλεις σίγουρα να διαγράψεις το goal "${goal.title}"; Αυτή η ενέργεια δεν αναιρείται.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      danger: true,
+      onConfirm: async () => {
+        await deleteGoal(goal.id);
+      },
+    });
+  }
+
   function exportUserData() {
     const exportedAt = new Date().toISOString();
 
@@ -458,6 +521,7 @@ function App() {
         dailyNotes,
         customCategories,
         userSettings,
+        goals,
       },
     };
 
@@ -738,6 +802,17 @@ function App() {
       <StatsView
         allTimeStats={allTimeStats}
         backlogItemsCount={backlogItems.length}
+        categories={categories}
+        goals={goals}
+        goalsLoading={goalsLoading}
+        goalForm={goalForm}
+        setGoalForm={setGoalForm}
+        editingGoalId={editingGoalId}
+        onSaveGoal={saveGoal}
+        onCancelEditGoal={cancelEditGoal}
+        onEditGoal={startEditGoal}
+        onDeleteGoal={requestDeleteGoal}
+        onToggleGoalActive={toggleGoalActive}
       />
     );
   }
