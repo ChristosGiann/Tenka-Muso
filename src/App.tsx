@@ -38,6 +38,7 @@ import {
 } from "./utils/date";
 import { getDurationMinutes } from "./utils/time";
 import { buildStats } from "./utils/stats";
+import { buildGoalProgress } from "./utils/goals";
 import { theme } from "./styles/theme";
 import "./App.css";
 
@@ -322,6 +323,10 @@ function App() {
   const weekStats = buildStats(weekTasks, categories);
   const allTimeStats = buildStats(tasks, categories);
 
+  const goalProgressItems = useMemo(() => {
+    return buildGoalProgress(goals, tasks);
+  }, [goals, tasks]);
+
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const taskSearchResults = useMemo(() => {
@@ -461,15 +466,35 @@ function App() {
   }
 
   async function saveGoal() {
-    if (!goalForm.title.trim()) return;
+    if (!firebaseUser) {
+      alert("Δεν είσαι συνδεδεμένος. Κάνε sign in πρώτα.");
+      return;
+    }
 
-    await saveGoalDocument({
-      editingGoalId,
-      form: goalForm,
-    });
+    if (!goalForm.title.trim()) {
+      alert("Βάλε τίτλο στο goal.");
+      return;
+    }
 
-    setEditingGoalId(null);
-    setGoalForm(createEmptyGoalForm(userSettings.defaultCategory));
+    const targetValue = Number(goalForm.targetValue);
+
+    if (!Number.isFinite(targetValue) || targetValue <= 0) {
+      alert("Το target πρέπει να είναι αριθμός μεγαλύτερος από 0.");
+      return;
+    }
+
+    try {
+      await saveGoalDocument({
+        editingGoalId,
+        form: goalForm,
+      });
+
+      setEditingGoalId(null);
+      setGoalForm(createEmptyGoalForm(userSettings.defaultCategory));
+    } catch (error) {
+      console.error("Goal save failed:", error);
+      alert("Το goal δεν αποθηκεύτηκε. Δες το Console για το error.");
+    }
   }
 
   function startEditGoal(goal: Goal) {
@@ -804,6 +829,7 @@ function App() {
         backlogItemsCount={backlogItems.length}
         categories={categories}
         goals={goals}
+        goalProgressItems={goalProgressItems}
         goalsLoading={goalsLoading}
         goalForm={goalForm}
         setGoalForm={setGoalForm}
