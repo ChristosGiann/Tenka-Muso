@@ -4,13 +4,18 @@ import { theme } from "../styles/theme";
 import { formatMinutes } from "../utils/time";
 import { CategoryStats } from "../components/CategoryStats";
 import { EmptyState } from "../components/EmptyState";
+import { GoalsPanel } from "../components/GoalsPanel";
 
 type StatsViewProps = {
   allTimeStats: ComponentProps<typeof CategoryStats>["stats"];
   backlogItemsCount: number;
-};
+} & ComponentProps<typeof GoalsPanel>;
 
-export function StatsView({ allTimeStats, backlogItemsCount }: StatsViewProps) {
+export function StatsView({
+  allTimeStats,
+  backlogItemsCount,
+  ...goalsPanelProps
+}: StatsViewProps) {
   return (
     <>
       <header className="mb-8">
@@ -59,6 +64,8 @@ export function StatsView({ allTimeStats, backlogItemsCount }: StatsViewProps) {
           </div>
         </div>
       </div>
+
+      <GoalsPanel {...goalsPanelProps} />
 
       <div className={`${theme.card} mt-8`}>
         <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
