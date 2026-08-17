@@ -17,6 +17,7 @@ import {
   type GoalFormState,
   useGoals,
 } from "./hooks/useGoals";
+import { useProjects } from "./hooks/useProjects";
 import type {
   BacklogPriority,
   BacklogStatus,
@@ -210,6 +211,8 @@ function App() {
     deleteGoal,
     toggleGoalActive,
   } = useGoals(firebaseUser);
+
+  const { projects } = useProjects(firebaseUser);
 
   const {
     customCategories,
@@ -549,6 +552,7 @@ function App() {
         customCategories,
         userSettings,
         goals,
+        projects,
       },
     };
 
