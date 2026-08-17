@@ -71,3 +71,22 @@ export type CalendarDay = {
   dayNumber: number;
   isCurrentMonth: boolean;
 };
+
+export type ProjectStatus = "active" | "paused" | "completed";
+
+export type ProjectGoal = {
+  id: string;
+  title: string;
+  completed: boolean;
+};
+
+export type Project = {
+  id: string;
+  title: string;
+  slug: string;
+  status: ProjectStatus;
+  description: string;
+  startDate: string;
+  deadline?: string;
+  goals: ProjectGoal[];
+};
