@@ -1027,6 +1027,7 @@ function App() {
     return (
       <ProjectsView
         projects={projects}
+        tasks={tasks}
         projectsLoading={projectsLoading}
         projectForm={projectForm}
         setProjectForm={setProjectForm}
