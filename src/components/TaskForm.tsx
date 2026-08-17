@@ -1,9 +1,17 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 
 import type {
   BacklogPriority,
   BacklogStatus,
   CustomCategory,
+  Project,
   RoutineRecurrence,
   TaskType,
   WeekdayNumber,
@@ -29,6 +37,7 @@ type TaskFormProps = {
   editingTaskId: string | null;
   categories: string[];
   customCategories: CustomCategory[];
+  projects: Project[];
   newCategoryName: string;
   showCategories: boolean;
   taskFormRef: RefObject<HTMLDivElement | null>;
@@ -57,6 +66,7 @@ export function TaskForm({
   editingTaskId,
   categories,
   customCategories,
+  projects,
   newCategoryName,
   showCategories,
   taskFormRef,
@@ -68,6 +78,91 @@ export function TaskForm({
   onSaveTask,
   onCancelEdit,
 }: TaskFormProps) {
+
+  const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const [projectMentionQuery, setProjectMentionQuery] = useState<string | null>(
+    null
+  );
+
+  const [projectMentionRange, setProjectMentionRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+
+  const projectMentionSuggestions = useMemo(() => {
+    if (!projectMentionQuery) return [];
+
+    const normalizedQuery = projectMentionQuery.toLowerCase();
+
+    return projects
+      .filter((project) => {
+        return (
+          project.slug.toLowerCase().includes(normalizedQuery) ||
+          project.title.toLowerCase().includes(normalizedQuery)
+        );
+      })
+      .slice(0, 6);
+  }, [projects, projectMentionQuery]);
+
+  function clearProjectMentionSuggestions() {
+    setProjectMentionQuery(null);
+    setProjectMentionRange(null);
+  }
+
+  function updateProjectMentionState(value: string, caretPosition: number | null) {
+    if (caretPosition === null) {
+      clearProjectMentionSuggestions();
+      return;
+    }
+
+    const textBeforeCaret = value.slice(0, caretPosition);
+    const mentionMatch = /(^|\s)@([a-zA-Z0-9_\-\u0370-\u03ff]*)$/.exec(
+      textBeforeCaret
+    );
+
+    if (!mentionMatch || mentionMatch[2].length === 0) {
+      clearProjectMentionSuggestions();
+      return;
+    }
+
+    const query = mentionMatch[2];
+    const mentionStart = caretPosition - query.length - 1;
+
+    setProjectMentionQuery(query);
+    setProjectMentionRange({
+      start: mentionStart,
+      end: caretPosition,
+    });
+  }
+
+  function insertProjectMention(project: Project) {
+    if (!projectMentionRange) return;
+
+    const insertedMention = `@${project.slug} `;
+    const nextNotes = `${form.notes.slice(
+      0,
+      projectMentionRange.start
+    )}${insertedMention}${form.notes.slice(projectMentionRange.end)}`;
+
+    const nextCaretPosition = projectMentionRange.start + insertedMention.length;
+
+    setForm({
+      ...form,
+      notes: nextNotes,
+    });
+
+    clearProjectMentionSuggestions();
+
+    window.setTimeout(() => {
+      notesTextareaRef.current?.focus();
+      notesTextareaRef.current?.setSelectionRange(
+        nextCaretPosition,
+        nextCaretPosition
+      );
+    }, 0);
+  }
+
   function toggleRoutineWeekday(weekday: WeekdayNumber) {
     const weekdays = form.recurrence.weekdays;
     const weekdayIsSelected = weekdays.includes(weekday);
@@ -90,7 +185,7 @@ export function TaskForm({
   }
 
   return (
-    <div ref={taskFormRef} className={theme.card}>
+    <div ref={taskFormRef} className={`relative z-40 ${theme.card}`}>
       <h3 className={`${theme.sectionTitle} ${theme.brushUnderline} mb-5`}>
         {editingTaskId ? "Επεξεργασία task" : "Νέο task / routine / backlog item"}
       </h3>
@@ -317,14 +412,69 @@ export function TaskForm({
           </label>
         </div>
 
-        <textarea
-          placeholder="Σημειώσεις"
-          value={form.notes}
-          onChange={(event) =>
-            setForm({ ...form, notes: event.target.value })
-          }
-          className={`${theme.input} min-h-24 md:col-span-2`}
-        />
+        <div className="relative z-50 md:col-span-2">
+          <textarea
+            ref={notesTextareaRef}
+            placeholder="Σημειώσεις — γράψε @ και γράμμα για να συνδέσεις project"
+            value={form.notes}
+            onChange={(event) => {
+              const nextNotes = event.target.value;
+
+              setForm({ ...form, notes: nextNotes });
+              updateProjectMentionState(nextNotes, event.target.selectionStart);
+            }}
+            onClick={(event) =>
+              updateProjectMentionState(
+                event.currentTarget.value,
+                event.currentTarget.selectionStart
+              )
+            }
+            onKeyUp={(event) =>
+              updateProjectMentionState(
+                event.currentTarget.value,
+                event.currentTarget.selectionStart
+              )
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                clearProjectMentionSuggestions();
+              }
+            }}
+            className={`${theme.input} min-h-24`}
+          />
+
+          {projectMentionSuggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-[9999] mt-2 overflow-hidden rounded-2xl border border-[color:var(--tm-border)] bg-[var(--tm-card-bg)] shadow-[0_14px_35px_rgba(23,23,23,0.16)]">
+              <div className="border-b border-[color:var(--tm-border-soft)] px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--tm-muted)]">
+                  Project mentions
+                </p>
+              </div>
+
+              <div className="max-h-64 overflow-y-auto p-2">
+                {projectMentionSuggestions.map((project) => (
+                  <button
+                    key={project.id}
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      insertProjectMention(project);
+                    }}
+                    className="block w-full rounded-xl px-3 py-3 text-left transition hover:bg-[var(--tm-secondary-hover)]"
+                  >
+                    <span className="block text-sm font-bold text-[color:var(--tm-title)]">
+                      @{project.slug}
+                    </span>
+
+                    <span className="mt-1 block text-xs font-semibold text-[color:var(--tm-muted)]">
+                      {project.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">

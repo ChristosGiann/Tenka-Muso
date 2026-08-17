@@ -786,6 +786,7 @@ function App() {
         editingTaskId={editingTaskId}
         categories={categories}
         customCategories={customCategories}
+        projects={projects}
         newCategoryName={newCategoryName}
         showCategories={showCategories}
         taskFormRef={taskFormRef}
