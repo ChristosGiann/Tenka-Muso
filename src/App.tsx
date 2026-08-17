@@ -100,6 +100,12 @@ const ProfileView = lazy(() =>
   }))
 );
 
+const ProjectsView = lazy(() =>
+  import("./views/ProjectsView").then((module) => ({
+    default: module.ProjectsView,
+  }))
+);
+
 function ViewLoadingFallback() {
   return (
     <div className={`${theme.cardSoft} text-sm font-semibold text-neutral-600`}>
@@ -969,6 +975,7 @@ function App() {
     { id: "stats", label: "Stats" },
     { id: "backlog", label: "Backlog" },
     { id: "search", label: "Search" },
+    { id: "projects", label: "Projects" },
     { id: "profile", label: "Profile" },
   ];
 
@@ -1034,6 +1041,7 @@ function App() {
                 {activeView === "stats" && renderStatsView()}
                 {activeView === "backlog" && renderBacklogView()}
                 {activeView === "search" && renderSearchView()}
+                {activeView === "projects" && <ProjectsView />}
                 {activeView === "profile" && renderProfileView()}
               </Suspense>
 
