@@ -1,12 +1,15 @@
+import {
+  appThemeOptions,
+  type AppThemeKey,
+} from "../styles/themeOptions";
 import type { User } from "firebase/auth";
-
 import type { View } from "../types";
 import { theme } from "../styles/theme";
 
 type UserSettings = {
   defaultCategory: string;
   defaultView: View;
-  themePreference: string;
+  themePreference: AppThemeKey;
 };
 
 type ProfileViewProps = {
@@ -30,7 +33,7 @@ type ProfileViewProps = {
   onSaveProfileName: () => void | Promise<void>;
   onDefaultCategoryChange: (value: string) => void;
   onDefaultViewChange: (value: View) => void;
-  onThemePreferenceChange: (value: string) => void;
+  onThemePreferenceChange: (value: AppThemeKey) => void;
   onSaveUserSettings: () => void | Promise<void>;
   onExportUserData: () => void;
   onSignInWithGoogle: () => void | Promise<void>;
@@ -72,8 +75,8 @@ export function ProfileView({
 
   const userLabel = firebaseUser
     ? firebaseUser.displayName ||
-      firebaseUser.email ||
-      `Anonymous ${firebaseUser.uid.slice(0, 8)}...`
+    firebaseUser.email ||
+    `Anonymous ${firebaseUser.uid.slice(0, 8)}...`
     : "Δεν υπάρχει Firebase user.";
 
   return (
@@ -257,13 +260,15 @@ export function ProfileView({
                 <select
                   value={userSettings.themePreference}
                   onChange={(event) =>
-                    onThemePreferenceChange(event.target.value)
+                    onThemePreferenceChange(event.target.value as AppThemeKey)
                   }
                   className={theme.inputFull}
                 >
-                  <option value="manga-grayscale">
-                    Manga grayscale / sumi-e
-                  </option>
+                  {appThemeOptions.map((themeOption) => (
+                    <option key={themeOption.key} value={themeOption.key}>
+                      {themeOption.label}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>

@@ -55,6 +55,8 @@ import {
   getTasksForMonth,
 } from "./utils/routines";
 
+import { getAppThemeOption } from "./styles/themeOptions";
+
 const TodayView = lazy(() =>
   import("./views/TodayView").then((module) => ({
     default: module.TodayView,
@@ -971,8 +973,12 @@ function App() {
     setMobileMenuOpen(false);
   }
 
+  const activeThemeClass = getAppThemeOption(
+    userSettings.themePreference
+  ).themeClass;
+
   return (
-    <div className={theme.appShell}>
+    <div className={`${activeThemeClass} ${theme.appShell}`}>
       <div className={`${theme.pageBackdrop} ${theme.paperTexture}`}>
         <img
           src="/theme/mountain.png"
