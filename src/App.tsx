@@ -17,7 +17,11 @@ import {
   type GoalFormState,
   useGoals,
 } from "./hooks/useGoals";
-import { useProjects } from "./hooks/useProjects";
+import {
+  createEmptyProjectForm,
+  type ProjectFormState,
+  useProjects,
+} from "./hooks/useProjects";
 import type {
   BacklogPriority,
   BacklogStatus,
@@ -27,6 +31,7 @@ import type {
   Task,
   TaskType,
   View,
+  Project,
 } from "./types";
 
 import { defaultCategories } from "./constants/categories";
@@ -131,6 +136,12 @@ function App() {
     createEmptyGoalForm(defaultUserSettings.defaultCategory)
   );
 
+  const [projectForm, setProjectForm] = useState<ProjectFormState>(() =>
+    createEmptyProjectForm()
+  );
+
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -218,7 +229,13 @@ function App() {
     toggleGoalActive,
   } = useGoals(firebaseUser);
 
-  const { projects } = useProjects(firebaseUser);
+  const {
+    projects,
+    projectsLoading,
+    saveProject: saveProjectDocument,
+    deleteProject,
+    updateProjectStatus,
+  } = useProjects(firebaseUser);
 
   const {
     customCategories,
@@ -535,6 +552,62 @@ function App() {
       danger: true,
       onConfirm: async () => {
         await deleteGoal(goal.id);
+      },
+    });
+  }
+
+  async function saveProject() {
+    if (!firebaseUser) {
+      alert("Δεν είσαι συνδεδεμένος. Κάνε sign in πρώτα.");
+      return;
+    }
+
+    if (!projectForm.title.trim()) {
+      alert("Βάλε τίτλο στο project.");
+      return;
+    }
+
+    try {
+      await saveProjectDocument({
+        editingProjectId,
+        form: projectForm,
+      });
+
+      setEditingProjectId(null);
+      setProjectForm(createEmptyProjectForm());
+    } catch (error) {
+      console.error("Project save failed:", error);
+      alert("Το project δεν αποθηκεύτηκε. Δες το Console για το error.");
+    }
+  }
+
+  function startEditProject(project: Project) {
+    setEditingProjectId(project.id);
+
+    setProjectForm({
+      title: project.title,
+      slug: project.slug,
+      status: project.status,
+      description: project.description,
+      startDate: project.startDate,
+      deadline: project.deadline ?? "",
+    });
+  }
+
+  function cancelEditProject() {
+    setEditingProjectId(null);
+    setProjectForm(createEmptyProjectForm());
+  }
+
+  function requestDeleteProject(project: Project) {
+    setConfirmModal({
+      title: "Διαγραφή project",
+      message: `Θέλεις σίγουρα να διαγράψεις το project "${project.title}"; Αυτή η ενέργεια δεν αναιρείται.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      danger: true,
+      onConfirm: async () => {
+        await deleteProject(project.id);
       },
     });
   }
@@ -949,6 +1022,23 @@ function App() {
     );
   }
 
+  function renderProjectsView() {
+    return (
+      <ProjectsView
+        projects={projects}
+        projectsLoading={projectsLoading}
+        projectForm={projectForm}
+        setProjectForm={setProjectForm}
+        editingProjectId={editingProjectId}
+        onSaveProject={saveProject}
+        onCancelEditProject={cancelEditProject}
+        onEditProject={startEditProject}
+        onDeleteProject={requestDeleteProject}
+        onUpdateProjectStatus={updateProjectStatus}
+      />
+    );
+  }
+
   function getBacklogScheduleDate(taskId: string) {
     return backlogScheduleDates[taskId] ?? selectedDate;
   }
@@ -1041,7 +1131,7 @@ function App() {
                 {activeView === "stats" && renderStatsView()}
                 {activeView === "backlog" && renderBacklogView()}
                 {activeView === "search" && renderSearchView()}
-                {activeView === "projects" && <ProjectsView />}
+                {activeView === "projects" && renderProjectsView()}
                 {activeView === "profile" && renderProfileView()}
               </Suspense>
 
