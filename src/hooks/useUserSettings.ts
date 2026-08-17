@@ -1,3 +1,8 @@
+import {
+  defaultAppThemeKey,
+  isAppThemeKey,
+  type AppThemeKey,
+} from "../styles/themeOptions";
 import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
@@ -8,7 +13,7 @@ import type { View } from "../types";
 export const defaultUserSettings = {
   defaultCategory: "Δουλειά",
   defaultView: "today" as View,
-  themePreference: "manga-grayscale",
+  themePreference: defaultAppThemeKey,
 };
 
 export type UserSettings = typeof defaultUserSettings;
@@ -61,10 +66,9 @@ export function useUserSettings(firebaseUser: User | null) {
           defaultView: isValidView(data.defaultView)
             ? data.defaultView
             : defaultUserSettings.defaultView,
-          themePreference:
-            typeof data.themePreference === "string"
-              ? data.themePreference
-              : defaultUserSettings.themePreference,
+          themePreference: isAppThemeKey(data.themePreference)
+            ? data.themePreference
+            : defaultUserSettings.themePreference,
         });
 
         setSettingsLoading(false);
@@ -95,7 +99,7 @@ export function useUserSettings(firebaseUser: User | null) {
     setSettingsSaved(false);
   }
 
-  function updateThemePreference(value: string) {
+  function updateThemePreference(value: AppThemeKey) {
     setUserSettings((currentSettings) => ({
       ...currentSettings,
       themePreference: value,
