@@ -236,6 +236,9 @@ function App() {
     saveProject: saveProjectDocument,
     deleteProject,
     updateProjectStatus,
+    addProjectGoal,
+    toggleProjectGoalCompleted,
+    deleteProjectGoal,
   } = useProjects(firebaseUser);
 
   const {
@@ -1057,6 +1060,9 @@ function App() {
         onUpdateProjectStatus={updateProjectStatus}
         onSelectedProjectIdChange={setSelectedProjectId}
         onOpenProject={openProjectFromMention}
+        onAddProjectGoal={addProjectGoal}
+        onToggleProjectGoalCompleted={toggleProjectGoalCompleted}
+        onDeleteProjectGoal={deleteProjectGoal}
       />
     );
   }
