@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
 
-import type { BacklogPriority, BacklogStatus, Task } from "../types";
+import type { BacklogPriority, BacklogStatus, Project, Task } from "../types";
 import { theme } from "../styles/theme";
 import { EmptyState } from "../components/EmptyState";
+import { ProjectMentionText } from "../components/ProjectMentionText";
 
 type BacklogSort = "newest" | "priority" | "category";
 
 type BacklogViewProps = {
   categories: string[];
+  projects: Project[];
   filteredBacklogItems: Task[];
   backlogItemsCount: number;
   backlogCategoryFilter: string;
@@ -24,10 +26,12 @@ type BacklogViewProps = {
   onEditTask: (task: Task) => void;
   onScheduleBacklogItem: (task: Task) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
+  onOpenProject: (project: Project) => void;
 };
 
 export function BacklogView({
   categories,
+  projects,
   filteredBacklogItems,
   backlogItemsCount,
   backlogCategoryFilter,
@@ -44,6 +48,7 @@ export function BacklogView({
   onEditTask,
   onScheduleBacklogItem,
   onDeleteTask,
+  onOpenProject,
 }: BacklogViewProps) {
   return (
     <>
@@ -169,9 +174,12 @@ export function BacklogView({
                   </div>
 
                   {item.notes && (
-                    <p className="mt-2 text-sm text-neutral-600">
-                      {item.notes}
-                    </p>
+                    <ProjectMentionText
+                      text={item.notes}
+                      projects={projects}
+                      onOpenProject={onOpenProject}
+                      className="mt-2 text-sm text-neutral-600"
+                    />
                   )}
                 </div>
 

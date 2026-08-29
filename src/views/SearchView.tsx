@@ -1,7 +1,8 @@
-import type { Task, TaskType } from "../types";
+import type { Project, Task, TaskType } from "../types";
 import { theme } from "../styles/theme";
 import { formatMinutes, getDurationMinutes } from "../utils/time";
 import { EmptyState } from "../components/EmptyState";
+import { ProjectMentionText } from "../components/ProjectMentionText";
 
 type SearchStatusFilter = "pending" | "done" | "all";
 
@@ -21,6 +22,7 @@ type SearchResult =
 
 type SearchViewProps = {
   categories: string[];
+  projects: Project[];
   searchResults: SearchResult[];
   searchQuery: string;
   searchCategoryFilter: string;
@@ -39,10 +41,12 @@ type SearchViewProps = {
   onEditTask: (task: Task) => void;
   onToggleDone: (taskId: string) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
+  onOpenProject: (project: Project) => void;
 };
 
 export function SearchView({
   categories,
+  projects,
   searchResults,
   searchQuery,
   searchCategoryFilter,
@@ -61,6 +65,7 @@ export function SearchView({
   onEditTask,
   onToggleDone,
   onDeleteTask,
+  onOpenProject,
 }: SearchViewProps) {
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
@@ -289,9 +294,12 @@ export function SearchView({
                     </p>
 
                     {task.notes && (
-                      <p className="mt-2 text-sm text-neutral-600">
-                        {task.notes}
-                      </p>
+                      <ProjectMentionText
+                        text={task.notes}
+                        projects={projects}
+                        onOpenProject={onOpenProject}
+                        className="mt-2 text-sm text-neutral-600"
+                      />
                     )}
                   </div>
 

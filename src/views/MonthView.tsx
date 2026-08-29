@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-import type { Task } from "../types";
+import type { Project, Task } from "../types";
 import { theme } from "../styles/theme";
 import { StatCards } from "../components/StatCards";
 import { TaskList } from "../components/TaskList";
@@ -24,6 +24,7 @@ type MonthViewProps = {
   monthTasks: Task[];
   selectedCalendarTasks: Task[];
   calendarDays: CalendarDay[];
+  projects: Project[];
   onSelectedMonthChange: (month: string) => void;
   onSelectedCalendarDateChange: (date: string) => void;
   onOpenDate: (date: string) => void;
@@ -35,6 +36,7 @@ type MonthViewProps = {
     occurrenceDate: string
   ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
+  onOpenProject: (project: Project) => void;
 };
 
 export function MonthView({
@@ -46,6 +48,7 @@ export function MonthView({
   monthTasks,
   selectedCalendarTasks,
   calendarDays,
+  projects,
   onSelectedMonthChange,
   onSelectedCalendarDateChange,
   onOpenDate,
@@ -54,6 +57,7 @@ export function MonthView({
   onToggleDone,
   onSkipRoutineOccurrence,
   onDeleteTask,
+  onOpenProject,
 }: MonthViewProps) {
   return (
     <>
@@ -93,6 +97,8 @@ export function MonthView({
             onEditTask={onEditAgendaTask}
             onToggleDone={onToggleDone}
             onSkipRoutineOccurrence={onSkipRoutineOccurrence}
+            projects={projects}
+            onOpenProject={onOpenProject}
           />
 
           <div className={theme.card}>
@@ -118,6 +124,8 @@ export function MonthView({
               onToggleDone={onToggleDone}
               onSkipRoutineOccurrence={onSkipRoutineOccurrence}
               onDeleteTask={onDeleteTask}
+              projects={projects}
+              onOpenProject={onOpenProject}
             />
           </div>
         </section>

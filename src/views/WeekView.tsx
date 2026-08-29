@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-import type { Task } from "../types";
+import type { Project, Task } from "../types";
 import { theme } from "../styles/theme";
 import { getToday, weekDays } from "../utils/date";
 import { formatMinutes } from "../utils/time";
@@ -22,6 +22,7 @@ type WeekViewProps = {
   weekStats: ComponentProps<typeof StatCards>["stats"];
   weekDaySummaries: WeekDaySummary[];
   weekTasks: Task[];
+  projects: Project[];
   onPreviousWeek: () => void;
   onCurrentWeek: () => void;
   onNextWeek: () => void;
@@ -34,6 +35,7 @@ type WeekViewProps = {
     occurrenceDate: string
   ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
+  onOpenProject: (project: Project) => void;
 };
 
 export function WeekView({
@@ -43,6 +45,7 @@ export function WeekView({
   weekStats,
   weekDaySummaries,
   weekTasks,
+  projects,
   onPreviousWeek,
   onCurrentWeek,
   onNextWeek,
@@ -52,6 +55,7 @@ export function WeekView({
   onToggleDone,
   onSkipRoutineOccurrence,
   onDeleteTask,
+  onOpenProject,
 }: WeekViewProps) {
   return (
     <>
@@ -192,6 +196,8 @@ export function WeekView({
               onToggleDone={onToggleDone}
               onSkipRoutineOccurrence={onSkipRoutineOccurrence}
               onDeleteTask={onDeleteTask}
+              projects={projects}
+              onOpenProject={onOpenProject}
             />
           </div>
         </section>
