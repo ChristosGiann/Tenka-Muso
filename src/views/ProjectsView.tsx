@@ -1,8 +1,9 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import type { Project, ProjectStatus, Task } from "../types";
 import { getProjectLinkedTasks } from "../utils/projectMentions";
 import type { ProjectFormState } from "../hooks/useProjects";
 import { theme } from "../styles/theme";
+import { formatMinutes, getDurationMinutes } from "../utils/time";
 
 type ProjectsViewProps = {
     projects: Project[];
@@ -40,6 +41,33 @@ export function ProjectsView({
     onDeleteProject,
     onUpdateProjectStatus,
 }: ProjectsViewProps) {
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+    const selectedProject =
+        projects.find((project) => project.id === selectedProjectId) ?? null;
+
+    const selectedProjectLinkedTasks = selectedProject
+        ? getProjectLinkedTasks(tasks, selectedProject)
+        : [];
+
+    const selectedProjectStats = {
+        totalItems: selectedProjectLinkedTasks.length,
+        completedItems: selectedProjectLinkedTasks.filter(
+            (task) => task.status === "done"
+        ).length,
+        backlogItems: selectedProjectLinkedTasks.filter(
+            (task) => task.type === "backlog"
+        ).length,
+        routineItems: selectedProjectLinkedTasks.filter(
+            (task) => task.type === "routine"
+        ).length,
+        loggedMinutes: selectedProjectLinkedTasks
+            .filter((task) => task.status === "done")
+            .reduce((sum, task) => {
+                return sum + getDurationMinutes(task.startTime, task.endTime);
+            }, 0),
+    };
+
     return (
         <>
             <header className="mb-8">
@@ -289,6 +317,18 @@ export function ProjectsView({
 
                                             <button
                                                 type="button"
+                                                onClick={() =>
+                                                    setSelectedProjectId((currentProjectId) =>
+                                                        currentProjectId === project.id ? null : project.id
+                                                    )
+                                                }
+                                                className={theme.smallButton}
+                                            >
+                                                {selectedProjectId === project.id ? "Hide details" : "View details"}
+                                            </button>
+
+                                            <button
+                                                type="button"
                                                 onClick={() => onEditProject(project)}
                                                 className={theme.smallButton}
                                             >
@@ -308,6 +348,114 @@ export function ProjectsView({
                             );
                         })}
                     </div>
+                    {selectedProject && (
+                        <div className={`${theme.innerPanel} mt-6 p-4`}>
+                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                <div>
+                                    <p className={theme.eyebrow}>Project detail</p>
+
+                                    <h4 className="mt-2 text-lg font-bold text-[color:var(--tm-title)]">
+                                        {selectedProject.title}
+                                    </h4>
+
+                                    <p className="mt-2 text-sm font-semibold text-[color:var(--tm-muted)]">
+                                        @{selectedProject.slug} · {selectedProjectLinkedTasks.length} linked items
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedProjectId(null)}
+                                    className={theme.smallButton}
+                                >
+                                    Close
+                                </button>
+                            </div>
+
+                            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                                <div className="rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-card-bg)] p-3">
+                                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--tm-muted)]">
+                                        Linked
+                                    </p>
+                                    <p className="mt-2 text-xl font-black text-[color:var(--tm-title)]">
+                                        {selectedProjectStats.totalItems}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-card-bg)] p-3">
+                                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--tm-muted)]">
+                                        Done
+                                    </p>
+                                    <p className="mt-2 text-xl font-black text-[color:var(--tm-title)]">
+                                        {selectedProjectStats.completedItems}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-card-bg)] p-3">
+                                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--tm-muted)]">
+                                        Time
+                                    </p>
+                                    <p className="mt-2 text-xl font-black text-[color:var(--tm-title)]">
+                                        {formatMinutes(selectedProjectStats.loggedMinutes)}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-card-bg)] p-3">
+                                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--tm-muted)]">
+                                        Backlog
+                                    </p>
+                                    <p className="mt-2 text-xl font-black text-[color:var(--tm-title)]">
+                                        {selectedProjectStats.backlogItems}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-card-bg)] p-3">
+                                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--tm-muted)]">
+                                        Routines
+                                    </p>
+                                    <p className="mt-2 text-xl font-black text-[color:var(--tm-title)]">
+                                        {selectedProjectStats.routineItems}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {selectedProjectLinkedTasks.length === 0 ? (
+                                <p className="mt-5 text-sm font-semibold text-[color:var(--tm-muted)]">
+                                    Δεν υπάρχουν ακόμα tasks/routines/backlog items που να έχουν{" "}
+                                    <span className="font-bold">@{selectedProject.slug}</span> στα notes.
+                                </p>
+                            ) : (
+                                <div className="mt-5 space-y-3">
+                                    {selectedProjectLinkedTasks.map((task) => (
+                                        <article
+                                            key={`${task.id}-${task.date}`}
+                                            className="rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-card-bg)] p-4"
+                                        >
+                                            <div className="flex flex-wrap gap-2">
+                                                <span className={theme.badge}>{task.category}</span>
+                                                <span className={theme.badge}>{task.type}</span>
+                                                <span className={theme.badge}>{task.status}</span>
+                                            </div>
+
+                                            <h5 className="mt-3 font-bold text-[color:var(--tm-title)]">
+                                                {task.title}
+                                            </h5>
+
+                                            <p className="mt-1 text-xs font-semibold text-[color:var(--tm-muted)]">
+                                                {task.date}
+                                            </p>
+
+                                            {task.notes && (
+                                                <p className="mt-3 whitespace-pre-wrap text-sm font-semibold text-[color:var(--tm-muted)]">
+                                                    {task.notes}
+                                                </p>
+                                            )}
+                                        </article>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </section>
             </div>
         </>
