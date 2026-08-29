@@ -21,7 +21,7 @@ export type UserSettings = typeof defaultUserSettings;
 function isValidView(value: unknown): value is View {
   return (
     typeof value === "string" &&
-    ["today", "week", "month", "stats", "backlog", "search", "profile"].includes(
+    ["today", "week", "month", "stats", "backlog", "search", "projects", "profile"].includes(
       value
     )
   );

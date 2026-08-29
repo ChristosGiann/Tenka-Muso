@@ -8,6 +8,7 @@ export type View =
   | "stats"
   | "backlog"
   | "search"
+  | "projects"
   | "profile";
 
 export type BacklogPriority = "low" | "medium" | "high";
