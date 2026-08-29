@@ -79,6 +79,7 @@ export type ProjectGoal = {
   id: string;
   title: string;
   completed: boolean;
+  dueDate?: string;
 };
 
 export type Project = {
