@@ -1,17 +1,18 @@
 import type { ComponentProps, ReactNode } from "react";
-
-import type { Task } from "../types";
+import type { Project, Task } from "../types";
 import { theme } from "../styles/theme";
 import { StatCards } from "../components/StatCards";
 import { CategoryStats } from "../components/CategoryStats";
 import { TaskList } from "../components/TaskList";
 import { EmptyState } from "../components/EmptyState";
+import { ProjectMentionText } from "../components/ProjectMentionText";
 
 type TodayViewProps = {
   selectedDate: string;
   todayStats: ComponentProps<typeof StatCards>["stats"];
   dayTasks: Task[];
   backlogItems: Task[];
+  projects: Project[];
   renderForm: () => ReactNode;
   renderDailyNoteCard: () => ReactNode;
   onSelectedDateChange: (date: string) => void;
@@ -23,6 +24,7 @@ type TodayViewProps = {
   ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
   onOpenBacklog: () => void;
+  onOpenProject: (project: Project) => void;
 };
 
 export function TodayView({
@@ -30,6 +32,7 @@ export function TodayView({
   todayStats,
   dayTasks,
   backlogItems,
+  projects,
   renderForm,
   renderDailyNoteCard,
   onSelectedDateChange,
@@ -38,6 +41,7 @@ export function TodayView({
   onSkipRoutineOccurrence,
   onDeleteTask,
   onOpenBacklog,
+  onOpenProject,
 }: TodayViewProps) {
   return (
     <>
@@ -87,6 +91,8 @@ export function TodayView({
               onToggleDone={onToggleDone}
               onSkipRoutineOccurrence={onSkipRoutineOccurrence}
               onDeleteTask={onDeleteTask}
+              projects={projects}
+              onOpenProject={onOpenProject}
             />
           </div>
         </section>
@@ -117,9 +123,12 @@ export function TodayView({
                   <p className="text-sm text-neutral-500">{item.category}</p>
 
                   {item.notes && (
-                    <p className="mt-2 text-sm text-neutral-600">
-                      {item.notes}
-                    </p>
+                    <ProjectMentionText
+                      text={item.notes}
+                      projects={projects}
+                      onOpenProject={onOpenProject}
+                      className="mt-2 text-sm text-neutral-600"
+                    />
                   )}
                 </div>
               ))}

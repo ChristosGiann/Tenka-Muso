@@ -30,6 +30,12 @@ type SaveProjectInput = {
   form: ProjectFormState;
 };
 
+type SaveProjectGoalInput = {
+  project: Project;
+  title: string;
+  dueDate: string;
+};
+
 export function createEmptyProjectForm(): ProjectFormState {
   return {
     title: "",
@@ -71,6 +77,10 @@ function getProjectGoals(value: unknown): ProjectGoal[] {
       id: goal.id,
       title: goal.title,
       completed: goal.completed,
+      dueDate:
+        "dueDate" in goal && typeof goal.dueDate === "string" && goal.dueDate.trim()
+          ? goal.dueDate
+          : undefined,
     }));
 }
 
@@ -82,6 +92,14 @@ export function createProjectSlug(title: string) {
     .replace(/[^a-z0-9_\-\u0370-\u03ff]/g, "")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+function createProjectGoalId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export function useProjects(firebaseUser: User | null) {
@@ -209,11 +227,77 @@ export function useProjects(firebaseUser: User | null) {
     });
   }
 
+  async function addProjectGoal({
+    project,
+    title,
+    dueDate,
+  }: SaveProjectGoalInput) {
+    if (!firebaseUser) return;
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    const projectRef = doc(db, "users", firebaseUser.uid, "projects", project.id);
+
+    const nextGoal: ProjectGoal = {
+      id: createProjectGoalId(),
+      title: trimmedTitle,
+      completed: false,
+    };
+
+    const trimmedDueDate = dueDate.trim();
+
+    if (trimmedDueDate) {
+      nextGoal.dueDate = trimmedDueDate;
+    }
+
+    await updateDoc(projectRef, {
+      goals: [...project.goals, nextGoal],
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function toggleProjectGoalCompleted(project: Project, goalId: string) {
+    if (!firebaseUser) return;
+
+    const projectRef = doc(db, "users", firebaseUser.uid, "projects", project.id);
+
+    const nextGoals = project.goals.map((goal) =>
+      goal.id === goalId
+        ? {
+            ...goal,
+            completed: !goal.completed,
+          }
+        : goal
+    );
+
+    await updateDoc(projectRef, {
+      goals: nextGoals,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function deleteProjectGoal(project: Project, goalId: string) {
+    if (!firebaseUser) return;
+
+    const projectRef = doc(db, "users", firebaseUser.uid, "projects", project.id);
+
+    const nextGoals = project.goals.filter((goal) => goal.id !== goalId);
+
+    await updateDoc(projectRef, {
+      goals: nextGoals,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
   return {
     projects,
     projectsLoading,
     saveProject,
     deleteProject,
     updateProjectStatus,
+    addProjectGoal,
+    toggleProjectGoalCompleted,
+    deleteProjectGoal,
   };
 }

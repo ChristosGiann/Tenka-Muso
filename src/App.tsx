@@ -141,6 +141,7 @@ function App() {
   );
 
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
 
@@ -235,6 +236,9 @@ function App() {
     saveProject: saveProjectDocument,
     deleteProject,
     updateProjectStatus,
+    addProjectGoal,
+    toggleProjectGoalCompleted,
+    deleteProjectGoal,
   } = useProjects(firebaseUser);
 
   const {
@@ -612,6 +616,12 @@ function App() {
     });
   }
 
+  function openProjectFromMention(project: Project) {
+    setSelectedProjectId(project.id);
+    setActiveView("projects");
+    setMobileMenuOpen(false);
+  }
+
   function exportUserData() {
     const exportedAt = new Date().toISOString();
 
@@ -838,6 +848,7 @@ function App() {
         todayStats={todayStats}
         dayTasks={dayTasks}
         backlogItems={backlogItems}
+        projects={projects}
         renderForm={renderForm}
         renderDailyNoteCard={renderDailyNoteCard}
         onSelectedDateChange={(date) => {
@@ -853,6 +864,7 @@ function App() {
         onSkipRoutineOccurrence={skipRoutineOccurrence}
         onDeleteTask={requestDeleteTask}
         onOpenBacklog={() => setActiveView("backlog")}
+        onOpenProject={openProjectFromMention}
       />
     );
   }
@@ -863,6 +875,8 @@ function App() {
 
     return (
       <WeekView
+        projects={projects}
+        onOpenProject={openProjectFromMention}
         selectedWeekDate={selectedWeekDate}
         weekStart={weekStart}
         weekEnd={weekEnd}
@@ -885,6 +899,8 @@ function App() {
   function renderMonthView() {
     return (
       <MonthView
+        projects={projects}
+        onOpenProject={openProjectFromMention}
         selectedMonth={selectedMonth}
         selectedCalendarDate={selectedCalendarDate}
         selectedCalendarDailyNote={dailyNotes[selectedCalendarDate]}
@@ -932,6 +948,8 @@ function App() {
   function renderSearchView() {
     return (
       <SearchView
+        projects={projects}
+        onOpenProject={openProjectFromMention}
         categories={categories}
         searchResults={searchResults}
         searchQuery={searchQuery}
@@ -997,6 +1015,8 @@ function App() {
   function renderBacklogView() {
     return (
       <BacklogView
+        projects={projects}
+        onOpenProject={openProjectFromMention}
         categories={categories}
         filteredBacklogItems={filteredBacklogItems}
         backlogItemsCount={backlogItems.length}
@@ -1028,6 +1048,7 @@ function App() {
       <ProjectsView
         projects={projects}
         tasks={tasks}
+        selectedProjectId={selectedProjectId}
         projectsLoading={projectsLoading}
         projectForm={projectForm}
         setProjectForm={setProjectForm}
@@ -1037,6 +1058,11 @@ function App() {
         onEditProject={startEditProject}
         onDeleteProject={requestDeleteProject}
         onUpdateProjectStatus={updateProjectStatus}
+        onSelectedProjectIdChange={setSelectedProjectId}
+        onOpenProject={openProjectFromMention}
+        onAddProjectGoal={addProjectGoal}
+        onToggleProjectGoalCompleted={toggleProjectGoalCompleted}
+        onDeleteProjectGoal={deleteProjectGoal}
       />
     );
   }

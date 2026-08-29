@@ -1,13 +1,15 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Project, ProjectStatus, Task } from "../types";
 import { getProjectLinkedTasks } from "../utils/projectMentions";
 import type { ProjectFormState } from "../hooks/useProjects";
 import { theme } from "../styles/theme";
 import { formatMinutes, getDurationMinutes } from "../utils/time";
+import { ProjectMentionText } from "../components/ProjectMentionText";
 
 type ProjectsViewProps = {
     projects: Project[];
     tasks: Task[];
+    selectedProjectId: string | null;
     projectsLoading: boolean;
     projectForm: ProjectFormState;
     setProjectForm: Dispatch<SetStateAction<ProjectFormState>>;
@@ -20,6 +22,21 @@ type ProjectsViewProps = {
         projectId: string,
         status: ProjectStatus
     ) => void | Promise<void>;
+    onSelectedProjectIdChange: (projectId: string | null) => void;
+    onOpenProject: (project: Project) => void;
+    onAddProjectGoal: (input: {
+        project: Project;
+        title: string;
+        dueDate: string;
+    }) => void | Promise<void>;
+    onToggleProjectGoalCompleted: (
+        project: Project,
+        goalId: string
+    ) => void | Promise<void>;
+    onDeleteProjectGoal: (
+        project: Project,
+        goalId: string
+    ) => void | Promise<void>;
 };
 
 function getProjectStatusLabel(status: ProjectStatus) {
@@ -31,6 +48,7 @@ function getProjectStatusLabel(status: ProjectStatus) {
 export function ProjectsView({
     projects,
     tasks,
+    selectedProjectId,
     projectsLoading,
     projectForm,
     setProjectForm,
@@ -40,8 +58,15 @@ export function ProjectsView({
     onEditProject,
     onDeleteProject,
     onUpdateProjectStatus,
+    onSelectedProjectIdChange,
+    onOpenProject,
+    onAddProjectGoal,
+    onToggleProjectGoalCompleted,
+    onDeleteProjectGoal,
 }: ProjectsViewProps) {
-    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const projectDetailRef = useRef<HTMLDivElement | null>(null);
+    const [newProjectGoalTitle, setNewProjectGoalTitle] = useState("");
+    const [newProjectGoalDueDate, setNewProjectGoalDueDate] = useState("");
 
     const selectedProject =
         projects.find((project) => project.id === selectedProjectId) ?? null;
@@ -67,6 +92,29 @@ export function ProjectsView({
                 return sum + getDurationMinutes(task.startTime, task.endTime);
             }, 0),
     };
+
+    useEffect(() => {
+        if (!selectedProject) return;
+
+        projectDetailRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+        });
+    }, [selectedProject]);
+
+    async function handleAddProjectGoal() {
+        if (!selectedProject) return;
+        if (!newProjectGoalTitle.trim()) return;
+
+        await onAddProjectGoal({
+            project: selectedProject,
+            title: newProjectGoalTitle,
+            dueDate: newProjectGoalDueDate,
+        });
+
+        setNewProjectGoalTitle("");
+        setNewProjectGoalDueDate("");
+    }
 
     return (
         <>
@@ -318,8 +366,8 @@ export function ProjectsView({
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    setSelectedProjectId((currentProjectId) =>
-                                                        currentProjectId === project.id ? null : project.id
+                                                    onSelectedProjectIdChange(
+                                                        selectedProjectId === project.id ? null : project.id
                                                     )
                                                 }
                                                 className={theme.smallButton}
@@ -349,7 +397,7 @@ export function ProjectsView({
                         })}
                     </div>
                     {selectedProject && (
-                        <div className={`${theme.innerPanel} mt-6 p-4`}>
+                        <div ref={projectDetailRef} className={`${theme.innerPanel} mt-6 p-4`}>
                             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                 <div>
                                     <p className={theme.eyebrow}>Project detail</p>
@@ -365,7 +413,7 @@ export function ProjectsView({
 
                                 <button
                                     type="button"
-                                    onClick={() => setSelectedProjectId(null)}
+                                    onClick={() => onSelectedProjectIdChange(null)}
                                     className={theme.smallButton}
                                 >
                                     Close
@@ -419,6 +467,114 @@ export function ProjectsView({
                                 </div>
                             </div>
 
+                            <div className="mt-6 rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-card-bg)] p-4">
+                                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                    <div>
+                                        <p className={theme.eyebrow}>Milestones</p>
+
+                                        <h5 className="mt-2 text-base font-black text-[color:var(--tm-title)]">
+                                            Project milestones
+                                        </h5>
+                                    </div>
+
+                                    <span className={theme.darkBadge}>
+                                        {selectedProject.goals.filter((goal) => goal.completed).length}/
+                                        {selectedProject.goals.length} done
+                                    </span>
+                                </div>
+
+                                <form
+                                    className="mt-4 grid gap-3 md:grid-cols-[1fr_170px_auto]"
+                                    onSubmit={(event) => {
+                                        event.preventDefault();
+                                        handleAddProjectGoal();
+                                    }}
+                                >
+                                    <input
+                                        value={newProjectGoalTitle}
+                                        onChange={(event) =>
+                                            setNewProjectGoalTitle(event.target.value)
+                                        }
+                                        placeholder="Π.χ. Finish clickable mentions"
+                                        className={theme.inputFull}
+                                    />
+
+                                    <input
+                                        type="date"
+                                        value={newProjectGoalDueDate}
+                                        onChange={(event) =>
+                                            setNewProjectGoalDueDate(event.target.value)
+                                        }
+                                        className={theme.inputFull}
+                                    />
+
+                                    <button
+                                        type="submit"
+                                        disabled={!newProjectGoalTitle.trim()}
+                                        className={theme.primaryButton}
+                                    >
+                                        + Add
+                                    </button>
+                                </form>
+
+                                {selectedProject.goals.length === 0 ? (
+                                    <p className="mt-4 text-sm font-semibold text-[color:var(--tm-muted)]">
+                                        Δεν υπάρχουν milestones ακόμα για αυτό το project.
+                                    </p>
+                                ) : (
+                                    <div className="mt-4 space-y-2">
+                                        {selectedProject.goals.map((goal) => (
+                                            <div
+                                                key={goal.id}
+                                                className="flex flex-col gap-3 rounded-xl border border-[color:var(--tm-border-soft)] bg-[var(--tm-page-bg)] p-3 md:flex-row md:items-center md:justify-between"
+                                            >
+                                                <label className="flex items-start gap-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={goal.completed}
+                                                        onChange={() =>
+                                                            onToggleProjectGoalCompleted(
+                                                                selectedProject,
+                                                                goal.id
+                                                            )
+                                                        }
+                                                        className="mt-1 h-4 w-4"
+                                                    />
+
+                                                    <span>
+                                                        <span
+                                                            className={`block text-sm font-bold ${
+                                                                goal.completed
+                                                                    ? "text-[color:var(--tm-muted)] line-through"
+                                                                    : "text-[color:var(--tm-title)]"
+                                                            }`}
+                                                        >
+                                                            {goal.title}
+                                                        </span>
+
+                                                        {goal.dueDate && (
+                                                            <span className="mt-1 block text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--tm-muted)]">
+                                                                Due: {goal.dueDate}
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </label>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        onDeleteProjectGoal(selectedProject, goal.id)
+                                                    }
+                                                    className={theme.dangerButton}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             {selectedProjectLinkedTasks.length === 0 ? (
                                 <p className="mt-5 text-sm font-semibold text-[color:var(--tm-muted)]">
                                     Δεν υπάρχουν ακόμα tasks/routines/backlog items που να έχουν{" "}
@@ -446,9 +602,12 @@ export function ProjectsView({
                                             </p>
 
                                             {task.notes && (
-                                                <p className="mt-3 whitespace-pre-wrap text-sm font-semibold text-[color:var(--tm-muted)]">
-                                                    {task.notes}
-                                                </p>
+                                                <ProjectMentionText
+                                                    text={task.notes}
+                                                    projects={projects}
+                                                    onOpenProject={onOpenProject}
+                                                    className="mt-3 text-sm font-semibold text-[color:var(--tm-muted)]"
+                                                />
                                             )}
                                         </article>
                                     ))}
