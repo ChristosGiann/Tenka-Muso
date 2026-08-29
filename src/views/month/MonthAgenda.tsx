@@ -1,11 +1,13 @@
-import type { Task } from "../../types";
+import type { Project, Task } from "../../types";
 import { theme } from "../../styles/theme";
 import { formatMinutes, getDurationMinutes } from "../../utils/time";
 import { EmptyState } from "../../components/EmptyState";
+import { ProjectMentionText } from "../../components/ProjectMentionText";
 
 type MonthAgendaProps = {
   selectedCalendarDate: string;
   selectedCalendarTasks: Task[];
+  projects: Project[];
   onOpenDate: (date: string) => void;
   onEditTask: (task: Task) => void;
   onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
@@ -13,15 +15,18 @@ type MonthAgendaProps = {
     taskId: string,
     occurrenceDate: string
   ) => void | Promise<void>;
+  onOpenProject: (project: Project) => void;
 };
 
 export function MonthAgenda({
   selectedCalendarDate,
   selectedCalendarTasks,
+  projects,
   onOpenDate,
   onEditTask,
   onToggleDone,
   onSkipRoutineOccurrence,
+  onOpenProject,
 }: MonthAgendaProps) {
   return (
     <div className={theme.card}>
@@ -89,9 +94,12 @@ export function MonthAgenda({
                 </p>
 
                 {task.notes && (
-                  <p className="mt-2 text-sm leading-6 text-neutral-600">
-                    {task.notes}
-                  </p>
+                  <ProjectMentionText
+                    text={task.notes}
+                    projects={projects}
+                    onOpenProject={onOpenProject}
+                    className="mt-2 text-sm leading-6 text-neutral-600"
+                  />
                 )}
               </div>
 

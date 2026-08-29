@@ -1,10 +1,12 @@
-import type { Task } from "../types";
+import type { Project, Task } from "../types";
 import { theme } from "../styles/theme";
 import { formatMinutes, getDurationMinutes } from "../utils/time";
 import { EmptyState, type EmptyStateOptions } from "./EmptyState";
+import { ProjectMentionText } from "./ProjectMentionText";
 
 type TaskListProps = {
   tasks: Task[];
+  projects: Project[];
   emptyState: string | EmptyStateOptions;
   onEditTask: (task: Task) => void;
   onToggleDone: (taskId: string, occurrenceDate?: string) => void | Promise<void>;
@@ -13,15 +15,18 @@ type TaskListProps = {
     occurrenceDate: string
   ) => void | Promise<void>;
   onDeleteTask: (task: Task) => void;
+  onOpenProject: (project: Project) => void;
 };
 
 export function TaskList({
   tasks,
+  projects,
   emptyState,
   onEditTask,
   onToggleDone,
   onSkipRoutineOccurrence,
   onDeleteTask,
+  onOpenProject,
 }: TaskListProps) {
   const resolvedEmptyState =
     typeof emptyState === "string"
@@ -72,7 +77,12 @@ export function TaskList({
               </p>
 
               {task.notes && (
-                <p className="mt-2 text-sm text-neutral-600">{task.notes}</p>
+                <ProjectMentionText
+                  text={task.notes}
+                  projects={projects}
+                  onOpenProject={onOpenProject}
+                  className="mt-2 text-sm text-neutral-600"
+                />
               )}
             </div>
 

@@ -1,13 +1,15 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { Project, ProjectStatus, Task } from "../types";
 import { getProjectLinkedTasks } from "../utils/projectMentions";
 import type { ProjectFormState } from "../hooks/useProjects";
 import { theme } from "../styles/theme";
 import { formatMinutes, getDurationMinutes } from "../utils/time";
+import { ProjectMentionText } from "../components/ProjectMentionText";
 
 type ProjectsViewProps = {
     projects: Project[];
     tasks: Task[];
+    selectedProjectId: string | null;
     projectsLoading: boolean;
     projectForm: ProjectFormState;
     setProjectForm: Dispatch<SetStateAction<ProjectFormState>>;
@@ -20,6 +22,8 @@ type ProjectsViewProps = {
         projectId: string,
         status: ProjectStatus
     ) => void | Promise<void>;
+    onSelectedProjectIdChange: (projectId: string | null) => void;
+    onOpenProject: (project: Project) => void;
 };
 
 function getProjectStatusLabel(status: ProjectStatus) {
@@ -31,6 +35,7 @@ function getProjectStatusLabel(status: ProjectStatus) {
 export function ProjectsView({
     projects,
     tasks,
+    selectedProjectId,
     projectsLoading,
     projectForm,
     setProjectForm,
@@ -40,8 +45,10 @@ export function ProjectsView({
     onEditProject,
     onDeleteProject,
     onUpdateProjectStatus,
+    onSelectedProjectIdChange,
+    onOpenProject,
 }: ProjectsViewProps) {
-    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const projectDetailRef = useRef<HTMLDivElement | null>(null);
 
     const selectedProject =
         projects.find((project) => project.id === selectedProjectId) ?? null;
@@ -67,6 +74,15 @@ export function ProjectsView({
                 return sum + getDurationMinutes(task.startTime, task.endTime);
             }, 0),
     };
+
+    useEffect(() => {
+        if (!selectedProject) return;
+
+        projectDetailRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+        });
+    }, [selectedProject]);
 
     return (
         <>
@@ -318,8 +334,8 @@ export function ProjectsView({
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    setSelectedProjectId((currentProjectId) =>
-                                                        currentProjectId === project.id ? null : project.id
+                                                    onSelectedProjectIdChange(
+                                                        selectedProjectId === project.id ? null : project.id
                                                     )
                                                 }
                                                 className={theme.smallButton}
@@ -349,7 +365,7 @@ export function ProjectsView({
                         })}
                     </div>
                     {selectedProject && (
-                        <div className={`${theme.innerPanel} mt-6 p-4`}>
+                        <div ref={projectDetailRef} className={`${theme.innerPanel} mt-6 p-4`}>
                             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                 <div>
                                     <p className={theme.eyebrow}>Project detail</p>
@@ -365,7 +381,7 @@ export function ProjectsView({
 
                                 <button
                                     type="button"
-                                    onClick={() => setSelectedProjectId(null)}
+                                    onClick={() => onSelectedProjectIdChange(null)}
                                     className={theme.smallButton}
                                 >
                                     Close
@@ -446,9 +462,12 @@ export function ProjectsView({
                                             </p>
 
                                             {task.notes && (
-                                                <p className="mt-3 whitespace-pre-wrap text-sm font-semibold text-[color:var(--tm-muted)]">
-                                                    {task.notes}
-                                                </p>
+                                                <ProjectMentionText
+                                                    text={task.notes}
+                                                    projects={projects}
+                                                    onOpenProject={onOpenProject}
+                                                    className="mt-3 text-sm font-semibold text-[color:var(--tm-muted)]"
+                                                />
                                             )}
                                         </article>
                                     ))}
