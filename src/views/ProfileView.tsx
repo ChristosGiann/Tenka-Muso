@@ -19,6 +19,9 @@ type ProfileViewProps = {
   authLoading: boolean;
   authActionLoading: boolean;
   authError: string | null;
+  authSuccessMessage: string | null;
+  emailDraft: string;
+  passwordDraft: string;
   categories: string[];
   profileNameDraft: string;
   profileNameSaving: boolean;
@@ -33,6 +36,11 @@ type ProfileViewProps = {
   dailyNotesLoading: boolean;
   onProfileNameDraftChange: (value: string) => void;
   onSaveProfileName: () => void | Promise<void>;
+  onEmailDraftChange: (value: string) => void;
+  onPasswordDraftChange: (value: string) => void;
+  onCreateAccountWithEmailPassword: () => void | Promise<void>;
+  onSignInWithEmailPassword: () => void | Promise<void>;
+  onSendPasswordReset: () => void | Promise<void>;
   onDefaultCategoryChange: (value: string) => void;
   onDefaultViewChange: (value: View) => void;
   onThemePreferenceChange: (value: AppThemeKey) => void;
@@ -54,6 +62,9 @@ export function ProfileView({
   authLoading,
   authActionLoading,
   authError,
+  authSuccessMessage,
+  emailDraft,
+  passwordDraft,
   categories,
   profileNameDraft,
   profileNameSaving,
@@ -68,6 +79,11 @@ export function ProfileView({
   dailyNotesLoading,
   onProfileNameDraftChange,
   onSaveProfileName,
+  onEmailDraftChange,
+  onPasswordDraftChange,
+  onCreateAccountWithEmailPassword,
+  onSignInWithEmailPassword,
+  onSendPasswordReset,
   onDefaultCategoryChange,
   onDefaultViewChange,
   onThemePreferenceChange,
@@ -85,6 +101,9 @@ export function ProfileView({
 }: ProfileViewProps) {
   const backupFileInputRef = useRef<HTMLInputElement | null>(null);
   const isAnonymousUser = firebaseUser?.isAnonymous ?? false;
+  const hasEmailPasswordProvider =
+    firebaseUser?.providerData?.some((provider) => provider.providerId === "password") ??
+    false;
 
   const providerLabel = isAnonymousUser
     ? "Anonymous"
@@ -187,6 +206,93 @@ export function ProfileView({
                   {providerLabel}
                 </p>
               </div>
+            </div>
+
+            <div className={`${theme.innerPanel} mt-6 p-4`}>
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-neutral-950">
+                    Email / Password
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold text-neutral-500">
+                    {isAnonymousUser
+                      ? "Φτιάξε κανονικό account χωρίς να χάσεις τα υπάρχοντα δεδομένα."
+                      : hasEmailPasswordProvider
+                        ? "Αυτός ο λογαριασμός μπορεί να χρησιμοποιήσει email/password."
+                        : "Μπορείς να συνδεθείς με υπάρχον email/password account."}
+                  </p>
+                </div>
+
+                <span className={theme.darkBadge}>
+                  {hasEmailPasswordProvider ? "Email enabled" : "Optional"}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="block text-sm font-bold text-neutral-600">
+                    Email
+                  </span>
+
+                  <input
+                    type="email"
+                    value={emailDraft}
+                    onChange={(event) => onEmailDraftChange(event.target.value)}
+                    placeholder="you@example.com"
+                    className={theme.inputFull}
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="block text-sm font-bold text-neutral-600">
+                    Password
+                  </span>
+
+                  <input
+                    type="password"
+                    value={passwordDraft}
+                    onChange={(event) => onPasswordDraftChange(event.target.value)}
+                    placeholder="Τουλάχιστον 6 χαρακτήρες"
+                    className={theme.inputFull}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={onCreateAccountWithEmailPassword}
+                  disabled={authActionLoading || !firebaseUser}
+                  className={theme.primaryButton}
+                >
+                  {isAnonymousUser ? "Upgrade anonymous account" : "Create account"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onSignInWithEmailPassword}
+                  disabled={authActionLoading}
+                  className={theme.secondaryButton}
+                >
+                  Sign in with email
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onSendPasswordReset}
+                  disabled={authActionLoading}
+                  className={theme.secondaryButton}
+                >
+                  Reset password
+                </button>
+              </div>
+
+              {authSuccessMessage && (
+                <p className="mt-4 rounded-xl border border-neutral-300 bg-stone-100 p-3 text-sm font-semibold text-neutral-800">
+                  {authSuccessMessage}
+                </p>
+              )}
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
