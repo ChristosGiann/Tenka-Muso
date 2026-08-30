@@ -77,6 +77,3 @@ The application works on mobile devices through a responsive interface and Progr
 - **Progressive Web App** manifest and service worker for a mobile-friendly experience.
 
 ---
-
-cd Tenka-Muso
-npm install
