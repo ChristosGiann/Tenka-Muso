@@ -22,6 +22,7 @@ import {
   type ProjectFormState,
   useProjects,
 } from "./hooks/useProjects";
+import { useBackupImport } from "./hooks/useBackupImport";
 import type {
   BacklogPriority,
   BacklogStatus,
@@ -263,6 +264,8 @@ function App() {
   const categories = Array.from(
     new Set([...defaultCategories, ...customCategoryNames])
   );
+
+  const backupImport = useBackupImport(firebaseUser, categories);
 
   const dayTasks = useMemo(() => {
     return getTasksForDate(tasks, selectedDate);
@@ -1006,6 +1009,13 @@ function App() {
         onThemePreferenceChange={updateThemePreference}
         onSaveUserSettings={saveUserSettings}
         onExportUserData={exportUserData}
+        backupImportPreview={backupImport.preview}
+        backupImporting={backupImport.importing}
+        backupImportError={backupImport.error}
+        backupImportResult={backupImport.result}
+        onBackupImportFileChange={backupImport.loadBackupFile}
+        onConfirmBackupImport={backupImport.confirmBackupImport}
+        onClearBackupImport={backupImport.clearBackupImport}
         onSignInWithGoogle={signInWithGoogle}
         onSignOut={handleSignOut}
       />
