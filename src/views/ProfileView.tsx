@@ -1,9 +1,11 @@
+import { useRef } from "react";
 import {
   appThemeOptions,
   type AppThemeKey,
 } from "../styles/themeOptions";
 import type { User } from "firebase/auth";
 import type { View } from "../types";
+import type { BackupImportPreview, BackupImportResult } from "../hooks/useBackupImport";
 import { theme } from "../styles/theme";
 
 type UserSettings = {
@@ -36,6 +38,13 @@ type ProfileViewProps = {
   onThemePreferenceChange: (value: AppThemeKey) => void;
   onSaveUserSettings: () => void | Promise<void>;
   onExportUserData: () => void;
+  backupImportPreview: BackupImportPreview | null;
+  backupImporting: boolean;
+  backupImportError: string | null;
+  backupImportResult: BackupImportResult | null;
+  onBackupImportFileChange: (file: File | null) => void | Promise<void>;
+  onConfirmBackupImport: () => void | Promise<void>;
+  onClearBackupImport: () => void;
   onSignInWithGoogle: () => void | Promise<void>;
   onSignOut: () => void | Promise<void>;
 };
@@ -64,9 +73,17 @@ export function ProfileView({
   onThemePreferenceChange,
   onSaveUserSettings,
   onExportUserData,
+  backupImportPreview,
+  backupImporting,
+  backupImportError,
+  backupImportResult,
+  onBackupImportFileChange,
+  onConfirmBackupImport,
+  onClearBackupImport,
   onSignInWithGoogle,
   onSignOut,
 }: ProfileViewProps) {
+  const backupFileInputRef = useRef<HTMLInputElement | null>(null);
   const isAnonymousUser = firebaseUser?.isAnonymous ?? false;
 
   const providerLabel = isAnonymousUser
@@ -334,6 +351,141 @@ export function ProfileView({
                 Το export είναι μόνο για backup. Δεν κάνει import ή αλλαγή στα
                 δεδομένα σου.
               </p>
+
+              <div className={`${theme.innerPanel} mt-4 p-4`}>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-neutral-950">
+                      Backup import
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-neutral-500">
+                      Διάλεξε Tenka Musō backup JSON και κάνε safe merge import
+                      χωρίς να σβηστούν υπάρχοντα δεδομένα.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => backupFileInputRef.current?.click()}
+                      disabled={!firebaseUser || backupImporting}
+                      className={theme.secondaryButton}
+                    >
+                      Choose JSON
+                    </button>
+
+                    <input
+                      ref={backupFileInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={(event) => {
+                        void onBackupImportFileChange(
+                          event.target.files?.[0] ?? null
+                        );
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {backupImportPreview && (
+                  <div className="mt-4 rounded-xl border border-neutral-300 bg-stone-50/75 p-4">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="text-sm font-black text-neutral-950">
+                          {backupImportPreview.fileName}
+                        </p>
+
+                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-neutral-400">
+                          {backupImportPreview.exportedAt
+                            ? `Exported: ${backupImportPreview.exportedAt}`
+                            : "Export date unknown"}
+                        </p>
+                      </div>
+
+                      <span className={theme.darkBadge}>Preview ready</span>
+                    </div>
+
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      <span className={theme.badge}>
+                        Tasks: {backupImportPreview.counts.tasks}
+                      </span>
+                      <span className={theme.badge}>
+                        Daily notes: {backupImportPreview.counts.dailyNotes}
+                      </span>
+                      <span className={theme.badge}>
+                        Categories: {backupImportPreview.counts.customCategories}
+                      </span>
+                      <span className={theme.badge}>
+                        Settings: {backupImportPreview.counts.userSettings}
+                      </span>
+                      <span className={theme.badge}>
+                        Goals: {backupImportPreview.counts.goals}
+                      </span>
+                      <span className={theme.badge}>
+                        Projects: {backupImportPreview.counts.projects}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={onConfirmBackupImport}
+                        disabled={!firebaseUser || backupImporting}
+                        className={theme.primaryButton}
+                      >
+                        {backupImporting ? "Importing..." : "Confirm safe import"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={onClearBackupImport}
+                        disabled={backupImporting}
+                        className={theme.secondaryButton}
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    <p className="mt-3 text-xs font-semibold text-neutral-500">
+                      Safe import: δημιουργεί νέα tasks/goals/projects, κάνει
+                      skip υπάρχοντα daily notes ίδιας ημερομηνίας και skip
+                      υπάρχουσες κατηγορίες με ίδιο όνομα.
+                    </p>
+                  </div>
+                )}
+
+                {backupImportError && (
+                  <p className="mt-4 rounded-xl border border-neutral-300 bg-stone-100 p-3 text-sm font-semibold text-neutral-800">
+                    {backupImportError}
+                  </p>
+                )}
+
+                {backupImportResult && (
+                  <div className="mt-4 rounded-xl border border-neutral-300 bg-stone-50/75 p-4">
+                    <p className="text-sm font-black text-neutral-950">
+                      Import completed
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-neutral-600">
+                      Imported: {backupImportResult.imported.tasks} tasks, {" "}
+                      {backupImportResult.imported.dailyNotes} daily notes, {" "}
+                      {backupImportResult.imported.customCategories} categories, {" "}
+                      {backupImportResult.imported.userSettings} settings, {" "}
+                      {backupImportResult.imported.goals} goals, {" "}
+                      {backupImportResult.imported.projects} projects.
+                    </p>
+
+                    <p className="mt-2 text-xs font-semibold text-neutral-500">
+                      Skipped: {backupImportResult.skipped.dailyNotes ?? 0} daily
+                      notes and {backupImportResult.skipped.customCategories ?? 0}
+                      categories because they already existed.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </section>
