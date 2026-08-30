@@ -78,7 +78,5 @@ The application works on mobile devices through a responsive interface and Progr
 
 ---
 
-
-git clone https://github.com/ChristosGiann/Tenka-Muso.git
 cd Tenka-Muso
 npm install
