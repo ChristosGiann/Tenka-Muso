@@ -199,6 +199,14 @@ function App() {
     signInWithGoogle,
     signOutUser,
     saveProfileName,
+    authSuccessMessage,
+    emailDraft,
+    passwordDraft,
+    updateEmailDraft,
+    updatePasswordDraft,
+    createAccountWithEmailPassword,
+    signInWithEmailPassword,
+    sendPasswordReset,
   } = useAuthUser();
 
   const {
@@ -990,6 +998,9 @@ function App() {
         authLoading={authLoading}
         authActionLoading={authActionLoading}
         authError={authError}
+        authSuccessMessage={authSuccessMessage}
+        emailDraft={emailDraft}
+        passwordDraft={passwordDraft}
         categories={categories}
         profileNameDraft={profileNameDraft}
         profileNameSaving={profileNameSaving}
@@ -1004,6 +1015,11 @@ function App() {
         dailyNotesLoading={dailyNotesLoading}
         onProfileNameDraftChange={updateProfileNameDraft}
         onSaveProfileName={saveProfileName}
+        onEmailDraftChange={updateEmailDraft}
+        onPasswordDraftChange={updatePasswordDraft}
+        onCreateAccountWithEmailPassword={createAccountWithEmailPassword}
+        onSignInWithEmailPassword={signInWithEmailPassword}
+        onSendPasswordReset={sendPasswordReset}
         onDefaultCategoryChange={updateDefaultCategory}
         onDefaultViewChange={updateDefaultView}
         onThemePreferenceChange={updateThemePreference}
